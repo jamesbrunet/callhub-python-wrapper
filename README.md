@@ -1,4 +1,4 @@
-# callhub-python-wrapper
+# CallHub Python Wrapper
 CallHub API Client Wrapper for Python
 
 *Based on Airtable Python Wrapper by gtalarico*
