@@ -8,8 +8,8 @@ def csv_and_mapping_create(contacts, fields):
     a CSV in-memory that CallHub will accept.
     Returns:
         csv_file (``file``): CSV file for upload to CallHub
-        mapping (``dict``): Dictionary of fields and ids
-        >>> {"first name": 0, "last name": 1}
+        mapping (``dict``): A mapping of CallHub field IDs to CSV column indexes
+        >>> {"0": "0", "1": "1"}
         """
     csv_file = StringIO()
 

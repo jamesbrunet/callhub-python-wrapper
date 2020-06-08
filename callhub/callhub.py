@@ -65,9 +65,10 @@ class CallHub:
             country_iso(``str``): ISO 3166 two-char country code,
                 see https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
         """
-        # Step 1. Get all fields from callhub account
-        # Step 2. Check if fields match contacts
-        # Step 3. Bulk upload
+        # Step 1. Get all fields from CallHub account
+        # Step 2. Check if all fields provided for contacts exist in CallHub account
+        # Step 3. Turn list of dictionaries into a CSV file and create a column mapping for the file
+        # Step 4. Upload the CSV and column mapping to CallHub
 
         # Note: CallHub fields are implemented funkily. They can contain capitalization but "CUSTOM_FIELD"
         # and "custom_field" cannot exist together in the same account. For that reason, for the purposes of API work,
@@ -90,15 +91,15 @@ class CallHub:
                 'mapping': mapping
             }
 
-            r = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
+            response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
                                   files={'contacts_csv': csv_file})
 
-            if r.json().get("message") == "'Import in progress. You will get an email when import is complete'":
+            if response.json().get("message") == "'Import in progress. You will get an email when import is complete'":
                 return True
-            elif 'Request was throttled.' in r.json().get("detail"):
-                raise RuntimeError("Bulk_create request was throttled because rate limit was exceeded.", r.json())
+            elif 'Request was throttled.' in response.json().get("detail"):
+                raise RuntimeError("Bulk_create request was throttled because rate limit was exceeded.", response.json())
             else:
-                raise RuntimeError("CallHub did not report that import was successful: ", r.json())
+                raise RuntimeError("CallHub did not report that import was successful: ", response.json())
 
         else:
             raise LookupError("Attempted to upload contacts that contain fields that haven't been "
