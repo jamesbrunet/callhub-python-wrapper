@@ -6,7 +6,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 Features:
 * Built-in (optional) ratelimiting that respects CallHub's varying rate limits for different functions
 * Better error handling for uploading contacts with fields that don't exist in CallHub
-* Abstracted away some tedious parts of using CallHub's API. When uploading contacts, CallHub wants you to map CSV columns to the ids of each field in CallHub, which is difficult and easy to mess up. This wrapper handles all of that for you.
+* Abstracted away some tedious parts of using CallHub's API. When uploading contacts, CallHub wants you to map CSV columns to the ids of each field in CallHub, which is difficult and easy to mess up. This wrapper handles all of that by matching on field names.
 
 Currently implemented:
 * Bulk create contacts
