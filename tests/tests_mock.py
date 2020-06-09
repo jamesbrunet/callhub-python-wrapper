@@ -138,6 +138,21 @@ class TestInit(unittest.TestCase):
         contacts = [{"first name": "James", "contact": 5555555555}, {"last name": "Brunet", "contact": 1234567890}]
         self.assertEqual(self.callhub._collect_fields(contacts), {"first name", "last name", "contact"})
 
+    def test_create_contact(self):
+        # Test if contact creation successful
+        self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
+        self.callhub.session.post = MagicMock()
+        expected_id = 123456
+        self.callhub.session.post.return_value.result.return_value.json.return_value = {"id": expected_id}
+        contact_id = self.callhub.create_contact({"first name": "Jimmy", "phone number": "5555555555"})
+        self.assertEqual(contact_id, expected_id)
+
+        # Ensure contact creation fails on field mismatch
+        self.callhub.fields = MagicMock(return_value={"foo": 0, "bar": 1})
+        self.assertRaises(LookupError,
+                          self.callhub.create_contact,
+                          {"first name": "james", "phone number": "5555555555"},
+                          )
 
 if __name__ == '__main__':
     unittest.main()

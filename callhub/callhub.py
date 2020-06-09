@@ -141,9 +141,9 @@ class CallHub:
         Returns:
             (``str``): ID of created contact or None if contact not created
         """
-        if self._assert_fields_exist(self, [contact]):
+        if self._assert_fields_exist([contact]):
             response = self.session.post('https://api.callhub.io/v1/contacts/', data=contact).result()
-            return response.json().get(["id"])
+            return response.json().get("id")
 
     def get_contacts(self, limit):
         """
