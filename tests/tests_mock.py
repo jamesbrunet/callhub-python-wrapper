@@ -33,7 +33,7 @@ class TestInit(unittest.TestCase):
 
 
     def test_agent_leaderboard(self):
-        self.callhub.session.get.return_value.json.return_value = {
+        self.callhub.session.get.return_value.result.return_value.json.return_value = {
             "plot_data": [
                 {
                     'connecttime': 3300,
@@ -63,7 +63,7 @@ class TestInit(unittest.TestCase):
 
         self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
         self.callhub.session.post = MagicMock()
-        self.callhub.session.post.return_value.json.return_value = {
+        self.callhub.session.post.return_value.result.return_value.json.return_value = {
             "message": "'Import in progress. You will get an email when import is complete'"}
         result = self.callhub.bulk_create(
             2325931969109558581,
@@ -83,7 +83,7 @@ class TestInit(unittest.TestCase):
     def test_bulk_create_api_exceeded_or_other_failure(self):
         self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
         self.callhub.session.post = MagicMock()
-        self.callhub.session.post.return_value.json.return_value = {
+        self.callhub.session.post.return_value.result.return_value.json.return_value = {
             "detail": "Request was throttled."}
         self.assertRaises(RuntimeError,
                           self.callhub.bulk_create,
@@ -91,7 +91,7 @@ class TestInit(unittest.TestCase):
                           [{"first name": "james", "phone number": "5555555555"}],
                           "CA"
                           )
-        self.callhub.session.post.return_value.json.return_value = {
+        self.callhub.session.post.return_value.result.return_value.json.return_value = {
             "NON STANDARD KEY": "YOU MESSED UP FOR SOME REASON"}
         self.assertRaises(RuntimeError,
                           self.callhub.bulk_create,
@@ -128,7 +128,7 @@ class TestInit(unittest.TestCase):
 
     def test_fields(self):
         self.callhub.session.get = MagicMock()
-        self.callhub.session.get.return_value.json.return_value = {'count': 4, 'results':
+        self.callhub.session.get.return_value.result.return_value.json.return_value = {'count': 4, 'results':
             [{'id': 0, 'name': 'phone number'}, {'id': 1, 'name': 'mobile number'},
              {'id': 2, 'name': 'last name'}, {'id': 3, 'name': 'first name'}]}
         self.assertEqual(self.callhub.fields(),

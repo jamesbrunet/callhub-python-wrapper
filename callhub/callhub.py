@@ -32,11 +32,11 @@ class CallHub:
                 - Default limits all other API requests to 18 per second (CallHub support states their limit is 20/s but
                   this plays it on the safe side, because other rate limiters seem a little sensitive)
         """
-        self.session = requests.Session()
+        self.session = FuturesSession()
 
         if rate_limit:
             # Apply general rate limit to self.session.get
-            rate_limited_get = sleep_and_retry(limits(**rate_limit["GENERAL"])(requests.Session.get))
+            rate_limited_get = sleep_and_retry(limits(**rate_limit["GENERAL"])(FuturesSession.get))
             self.session.get = types.MethodType(rate_limited_get, self.session)
             # Apply bulk rate limit to self.bulk_create
             self.bulk_create = sleep_and_retry(limits(**rate_limit["BULK_CREATE"])(self.bulk_create))
@@ -76,7 +76,7 @@ class CallHub:
 
     def agent_leaderboard(self, start, end):
         params = {"start_date": start, "end_date": end}
-        response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard", params=params)
+        response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard", params=params).result()
         return response.json().get("plot_data")
 
     def fields(self):
@@ -86,7 +86,7 @@ class CallHub:
             fields (``dict``): dictionary of fields and ids
             >>> {"first name": 0, "last name": 1}
         """
-        response = self.session.get('https://api.callhub.io/v1/contacts/fields/')
+        response = self.session.get('https://api.callhub.io/v1/contacts/fields/').result()
         return {field['name']: field["id"] for field in response.json()["results"]}
 
     def bulk_create(self, phonebook_id, contacts, country_iso):
@@ -121,7 +121,7 @@ class CallHub:
             }
 
             response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
-                                         files={'contacts_csv': csv_file})
+                                         files={'contacts_csv': csv_file}).result()
             if "Import in progress" in response.json().get("message", ""):
                 return True
             elif 'Request was throttled' in response.json().get("detail", ""):
@@ -142,7 +142,7 @@ class CallHub:
             (``str``): ID of created contact or None if contact not created
         """
         if self._assert_fields_exist(self, [contact]):
-            response = self.session.post('https://api.callhub.io/v1/contacts/', data=contact)
+            response = self.session.post('https://api.callhub.io/v1/contacts/', data=contact).result()
             return response.json().get(["id"])
 
     def get_contacts(self, limit):
@@ -155,15 +155,32 @@ class CallHub:
         fetched = 0
         contacts_url = "https://api.callhub.io/v1/contacts/"
         contact_list = []
-        while fetched < limit:
-            contacts = self.session.get(contacts_url).json()
-            print("{}/{} fetched. ({}%)".format(fetched, min(limit, contacts["count"]), round(fetched*100 / min(limit, contacts["count"]), 1)))
-            fetched += len(contacts["results"])
+        first_page = self.session.get(contacts_url).result().json()
+
+        # Calculate number of pages
+        page_size = len(first_page["results"])
+        num_pages = min(math.ceil(first_page["count"]/page_size), math.ceil(limit/page_size))
+        requests = []
+        fetched = 0
+        for i in range(1, num_pages+1):
+            fetched += page_size
+            print("Sent requests for {}/{} contacts ({}%)".format(fetched, min(limit, first_page["count"]),
+                                                round(fetched * 100 / min(limit, first_page["count"]), 1)))
+            requests.append(self.session.get(contacts_url, params={"page": i}))
+
+        print("Resolving requests")
+        for i, request in enumerate(requests):
+            current_contact = i * page_size
+            total_contacts = len(requests) * page_size
+            if current_contact % 100 == 0:
+                print("Resolving responses for {}/{} contacts ({}%)".format(current_contact, total_contacts,
+                                                                            round(current_contact * 100 / total_contacts)))
+            request = request.result()
+            contacts = request.json()
             contact_list += contacts["results"]
-            if contacts["next"]:
-                contacts_url = contacts["next"]
-            else:
-                break
+
+            if request.status_code != 200:
+                raise RuntimeError("Request {} status code {}".format(request.text,request.status_code))
 
         contact_list = contact_list[:limit]
         return contact_list
