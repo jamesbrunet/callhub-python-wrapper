@@ -110,7 +110,8 @@ pip-selfcheck.json
 .coverage
 
 # Bad tests that I don't want to push
-tests/messing_around.py
+bad_tests/messing_around.py
+bad_tests/tests_live.py
 
 # User-specific stuff:
 .idea/workspace.xml
