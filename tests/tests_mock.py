@@ -12,11 +12,11 @@ class TestInit(unittest.TestCase):
             "BULK_CREATE": {"calls": 1, "period": 0.2},
         }
         # Create one callhub object stored in cls.callhub (for most test cases)
-        # Create ten callhub objects stored in cls.callhubs (for bulk ratelimit testing)
+        # Create ten callhub objects stored in cls.callhubs (for bulk testing)
         cls.callhubs = []
 
         for i in range(11):
-            callhub = CallHub(rate_limit=cls.TESTING_API_LIMIT)
+            callhub = CallHub(api_key="123456789ABCDEF", rate_limit=cls.TESTING_API_LIMIT)
 
             # Override all http methods with mocking so a poorly designed test can't mess with
             callhub.session.get = MagicMock(returnvalue=None)
@@ -33,7 +33,29 @@ class TestInit(unittest.TestCase):
 
 
     def test_agent_leaderboard(self):
-        self.callhub.agent_leaderboard("2019-12-30", "2020-12-30")
+        self.callhub.session.get.return_value.json.return_value = {
+            "plot_data": [
+                {
+                    'connecttime': 3300,
+                    'teams': ['Fundraising'],
+                    'calls': 5,
+                    'agent':'jimmybru',
+                    'talktime': 120
+                }
+            ]
+        }
+
+        leaderboard = self.callhub.agent_leaderboard("2019-12-30", "2020-12-30")
+        expected_leaderboard = [
+            {
+                'connecttime': 3300,
+                'teams': ['Fundraising'],
+                'calls': 5,
+                'agent': 'jimmybru',
+                'talktime': 120
+            }
+        ]
+        self.assertEqual(leaderboard,expected_leaderboard)
 
     def test_bulk_create_success(self, test_specific_callhub_instance=None):
         if test_specific_callhub_instance:
@@ -48,6 +70,35 @@ class TestInit(unittest.TestCase):
             [{"first name": "james", "phone number": "5555555555"}],
             "CA")
         self.assertEqual(result, True)
+
+    def test_bulk_create_field_mismatch_failure(self):
+        self.callhub.fields = MagicMock(return_value={"foo": 0, "bar": 1})
+        self.assertRaises(LookupError,
+                          self.callhub.bulk_create,
+                          2325931969109558581,
+                          [{"first name": "james", "phone number": "5555555555"}],
+                          "CA"
+                          )
+
+    def test_bulk_create_api_exceeded_or_other_failure(self):
+        self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
+        self.callhub.session.post = MagicMock()
+        self.callhub.session.post.return_value.json.return_value = {
+            "detail": "Request was throttled."}
+        self.assertRaises(RuntimeError,
+                          self.callhub.bulk_create,
+                          2325931969109558581,
+                          [{"first name": "james", "phone number": "5555555555"}],
+                          "CA"
+                          )
+        self.callhub.session.post.return_value.json.return_value = {
+            "NON STANDARD KEY": "YOU MESSED UP FOR SOME REASON"}
+        self.assertRaises(RuntimeError,
+                          self.callhub.bulk_create,
+                          2325931969109558581,
+                          [{"first name": "james", "phone number": "5555555555"}],
+                          "CA"
+                          )
 
     def test_bulk_create_rate_limit(self):
         start = time.perf_counter()
@@ -74,14 +125,6 @@ class TestInit(unittest.TestCase):
         upper_bound = 1.05 * self.TESTING_API_LIMIT["BULK_CREATE"]["period"] * (num_iterations - 1)
         self.assertEqual(lower_bound <= stop-start <= upper_bound, True)
 
-    def test_bulk_create_field_mismatch_failure(self):
-        self.callhub.fields = MagicMock(return_value={"foo": 0, "bar": 1})
-        self.assertRaises(LookupError,
-                          self.callhub.bulk_create,
-                          2325931969109558581,
-                          [{"first name": "james", "phone number": "5555555555"}],
-                          "CA"
-                          )
 
     def test_fields(self):
         self.callhub.session.get = MagicMock()

@@ -106,9 +106,9 @@ class CallHub:
 
             response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
                                   files={'contacts_csv': csv_file})
-            if response.json().get("message") == "'Import in progress. You will get an email when import is complete'":
+            if "Import in progress" in response.json().get("message", ""):
                 return True
-            elif 'Request was throttled.' in response.json().get("detail"):
+            elif 'Request was throttled' in response.json().get("detail", ""):
                 raise RuntimeError("Bulk_create request was throttled because rate limit was exceeded.", response.json())
             else:
                 raise RuntimeError("CallHub did not report that import was successful: ", response.json())
