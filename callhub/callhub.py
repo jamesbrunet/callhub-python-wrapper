@@ -4,10 +4,10 @@ from ratelimit import limits, sleep_and_retry
 from .bulk_upload_tools import csv_and_mapping_create
 from requests.structures import CaseInsensitiveDict
 import types
-
+import math
+from requests_futures.sessions import FuturesSession
 
 class CallHub:
-
     API_LIMIT = {
         "GENERAL": {"calls": 18, "period": 1},
         "BULK_CREATE": {"calls": 1, "period": 70},
@@ -51,6 +51,29 @@ class CallHub:
                 fields.add(key)
         return fields
 
+    def _assert_fields_exist(self, contacts):
+        """
+        Internal function to check if fields in a list of contacts exist in CallHub account
+        If fields do not exist, raises LookupError.
+        """
+        # Note: CallHub fields are implemented funkily. They can contain capitalization but "CUSTOM_FIELD"
+        # and "custom_field" cannot exist together in the same account. For that reason, for the purposes of API work,
+        # fields are treated as case insensitive despite capitalization being allowed. Attempting to upload a contact
+        # with "CUSTOM_FIELD" will match to "custom_field" in a CallHub account.
+        fields_in_contacts = self._collect_fields(contacts)
+        fields_in_callhub = self.fields()
+
+        # Ensure case insensitivity and convert to set
+        fields_in_contact = set([field.lower() for field in fields_in_contacts])
+        fields_in_callhub = set([field.lower() for field in fields_in_callhub.keys()])
+
+        if fields_in_contact.issubset(fields_in_callhub):
+            return True
+        else:
+            raise LookupError("Attempted to upload contact (s) that contain fields that haven't been "
+                              "created in CallHub. Fields present in upload: {} Fields present in "
+                              "account: {}".format(fields_in_contact, fields_in_callhub))
+
     def agent_leaderboard(self, start, end):
         params = {"start_date": start, "end_date": end}
         response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard", params=params)
@@ -74,7 +97,7 @@ class CallHub:
         >>> callhub.bulk_create(885473, contacts, 'CA')
         Args:
             phonebook_id(``int``): ID of phonebank to insert contacts into.
-            contacts(``list``): Contacts to insert
+            contacts(``list``): Contacts to insert (phone number is a MANDATORY field in all contacts)
             country_iso(``str``): ISO 3166 two-char country code,
                 see https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2
         """
@@ -83,18 +106,11 @@ class CallHub:
         # Step 3. Turn list of dictionaries into a CSV file and create a column mapping for the file
         # Step 4. Upload the CSV and column mapping to CallHub
 
-        # Note: CallHub fields are implemented funkily. They can contain capitalization but "CUSTOM_FIELD"
-        # and "custom_field" cannot exist together in the same account. For that reason, for the purposes of API work,
-        # fields are treated as case insensitive despite capitalization being allowed. Attempting to upload a contact
-        # with "CUSTOM_FIELD" will match to "custom_field" in a CallHub account.
         contacts = [CaseInsensitiveDict(contact) for contact in contacts]
-        account_fields = self.fields()
-        account_fields_names = set([field.lower() for field in account_fields.keys()])
-        upload_fields_names = set([field.lower() for field in self._collect_fields(contacts)])
 
-        if upload_fields_names.issubset(account_fields_names):
+        if self._assert_fields_exist(contacts):
             # Create CSV file in memory in a way that pleases CallHub and generate column mapping
-            csv_file, mapping = csv_and_mapping_create(contacts, account_fields)
+            csv_file, mapping = csv_and_mapping_create(contacts, self.fields())
 
             # Upload CSV
             data = {
@@ -105,15 +121,49 @@ class CallHub:
             }
 
             response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
-                                  files={'contacts_csv': csv_file})
+                                         files={'contacts_csv': csv_file})
             if "Import in progress" in response.json().get("message", ""):
                 return True
             elif 'Request was throttled' in response.json().get("detail", ""):
-                raise RuntimeError("Bulk_create request was throttled because rate limit was exceeded.", response.json())
+                raise RuntimeError("Bulk_create request was throttled because rate limit was exceeded.",
+                                   response.json())
             else:
                 raise RuntimeError("CallHub did not report that import was successful: ", response.json())
 
-        else:
-            raise LookupError("Attempted to upload contacts that contain fields that haven't been "
-                              "created in CallHub. Fields present in upload: {} Fields present in "
-                              "account: {}".format(upload_fields_names, account_fields_names))
+    def create_contact(self, contact):
+        """
+        Creates single contact. Supports custom fields.
+        >>> contact = {'first name': 'Sumiya', 'phone number':'5555555555', 'mobile number': '5555555555'}
+        >>> callhub.create_contact(contact)
+        Args:
+            contacts(``dict``): Contacts to insert
+            Note that country_code and phone_number are MANDATORY
+        Returns:
+            (``str``): ID of created contact or None if contact not created
+        """
+        if self._assert_fields_exist(self, [contact]):
+            response = self.session.post('https://api.callhub.io/v1/contacts/', data=contact)
+            return response.json().get(["id"])
+
+    def get_contacts(self, limit):
+        """
+        Gets all contacts.
+        Args:
+            limit (``int``): Limit of number of contacts to get. If limit not provided, will
+                return first 100 contacts.
+        """
+        fetched = 0
+        contacts_url = "https://api.callhub.io/v1/contacts/"
+        contact_list = []
+        while fetched < limit:
+            contacts = self.session.get(contacts_url).json()
+            print("{}/{} fetched. ({}%)".format(fetched, min(limit, contacts["count"]), round(fetched*100 / min(limit, contacts["count"]), 1)))
+            fetched += len(contacts["results"])
+            contact_list += contacts["results"]
+            if contacts["next"]:
+                contacts_url = contacts["next"]
+            else:
+                break
+
+        contact_list = contact_list[:limit]
+        return contact_list
