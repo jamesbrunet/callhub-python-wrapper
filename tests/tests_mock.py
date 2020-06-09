@@ -7,25 +7,38 @@ import time
 class TestInit(unittest.TestCase):
     @classmethod
     def setUp(cls):
-        TESTING_API_LIMIT = {
-            "GENERAL": {"calls": 100, "period": 1},
-            "BULK_CREATE": {"calls": 1, "period": 0.1},
+        cls.TESTING_API_LIMIT = {
+            "GENERAL": {"calls": 1, "period": 0.1},
+            "BULK_CREATE": {"calls": 1, "period": 0.2},
         }
+        # Create one callhub object stored in cls.callhub (for most test cases)
+        # Create ten callhub objects stored in cls.callhubs (for bulk ratelimit testing)
+        cls.callhubs = []
 
-        cls.callhub = CallHub(rate_limit=TESTING_API_LIMIT)
+        for i in range(11):
+            callhub = CallHub(rate_limit=cls.TESTING_API_LIMIT)
 
-        # Override all http methods with mocking so a poorly designed test can't mess with
-        cls.callhub.session.get = MagicMock(returnvalue=None)
-        cls.callhub.session.post = MagicMock(returnvalue=None)
-        cls.callhub.session.put = MagicMock(returnvalue=None)
-        cls.callhub.session.delete = MagicMock(returnvalue=None)
-        cls.callhub.session.head = MagicMock(returnvalue=None)
-        cls.callhub.session.options = MagicMock(returnvalue=None)
+            # Override all http methods with mocking so a poorly designed test can't mess with
+            callhub.session.get = MagicMock(returnvalue=None)
+            callhub.session.post = MagicMock(returnvalue=None)
+            callhub.session.put = MagicMock(returnvalue=None)
+            callhub.session.delete = MagicMock(returnvalue=None)
+            callhub.session.head = MagicMock(returnvalue=None)
+            callhub.session.options = MagicMock(returnvalue=None)
+
+            if i == 0:
+                cls.callhub = callhub
+            else:
+                cls.callhubs.append(callhub)
+
 
     def test_agent_leaderboard(self):
         self.callhub.agent_leaderboard("2019-12-30", "2020-12-30")
 
-    def test_bulk_create_success(self):
+    def test_bulk_create_success(self, test_specific_callhub_instance=None):
+        if test_specific_callhub_instance:
+            self.callhub = test_specific_callhub_instance
+
         self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
         self.callhub.session.post = MagicMock()
         self.callhub.session.post.return_value.json.return_value = {
@@ -38,13 +51,28 @@ class TestInit(unittest.TestCase):
 
     def test_bulk_create_rate_limit(self):
         start = time.perf_counter()
-        for i in range(11):
+        num_iterations=11
+        for i in range(num_iterations):
             self.test_bulk_create_success()
         stop = time.perf_counter()
-        # 11 tests should run in almost exactly 1s, because there will be 10 exactly 0.1s delays between tests
-        # This will only run longer than 1s if the time to execute each iteration is longer than 0.1s.
-        # Time to execute one iteration Sandy Bridge i5: 0.0007s
-        self.assertEqual(0.995 <= stop-start <= 1.005, True)
+
+        # Should run within 95% to 105% of ratelimit*num iterations -1
+        lower_bound = 0.95 * self.TESTING_API_LIMIT["BULK_CREATE"]["period"] * (num_iterations - 1)
+        upper_bound = 1.05 * self.TESTING_API_LIMIT["BULK_CREATE"]["period"] * (num_iterations - 1)
+        self.assertEqual(lower_bound <= stop-start <= upper_bound, True)
+
+    def test_bulk_create_many_objects_rate_limit(self):
+        start = time.perf_counter()
+        num_iterations = 11
+        for i in range(num_iterations):
+            for callhub in self.callhubs:
+                self.test_bulk_create_success(test_specific_callhub_instance=callhub)
+        stop = time.perf_counter()
+        # num_iterations tests on n CallHub objects should run in almost exactly num_iterations*(ratelimit-1)
+        # because the rate limiting should be on a per-object basis.
+        lower_bound = 0.95 * self.TESTING_API_LIMIT["BULK_CREATE"]["period"] * (num_iterations - 1)
+        upper_bound = 1.05 * self.TESTING_API_LIMIT["BULK_CREATE"]["period"] * (num_iterations - 1)
+        self.assertEqual(lower_bound <= stop-start <= upper_bound, True)
 
     def test_bulk_create_field_mismatch_failure(self):
         self.callhub.fields = MagicMock(return_value={"foo": 0, "bar": 1})

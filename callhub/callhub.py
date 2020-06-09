@@ -35,10 +35,9 @@ class CallHub:
         self.session = requests.Session()
 
         if rate_limit:
-            # Apply general rate limit to requests.session.get
+            # Apply general rate limit to self.session.get
             rate_limited_get = sleep_and_retry(limits(**rate_limit["GENERAL"])(requests.Session.get))
             self.session.get = types.MethodType(rate_limited_get, self.session)
-            #requests.Session.get = sleep_and_retry(limits(calls=18, period=1)(requests.Session.get))
             # Apply bulk rate limit to self.bulk_create
             self.bulk_create = sleep_and_retry(limits(**rate_limit["BULK_CREATE"])(self.bulk_create))
 
