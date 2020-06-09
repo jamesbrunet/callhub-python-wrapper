@@ -9,6 +9,4 @@ install:
   - pip install -r requirements.txt
 # command to run tests
 script:
-  - pip install coveralls
-  - coverage run --source=callhub tests/tests_mock.py
-  - coveralls
+  - python -m unittest tests.tests_mock
