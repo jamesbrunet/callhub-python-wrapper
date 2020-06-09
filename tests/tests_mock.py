@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 from callhub import CallHub
 import time
-
+import math
 
 class TestInit(unittest.TestCase):
     @classmethod
@@ -153,6 +153,43 @@ class TestInit(unittest.TestCase):
                           self.callhub.create_contact,
                           {"first name": "james", "phone number": "5555555555"},
                           )
+
+    def get_all_contacts(self, limit, count, status=200):
+        self.callhub.session.get = MagicMock()
+        self.callhub.session.get.return_value.result.return_value.status_code = status
+        page_json = {
+            "count": count,
+            "results": [
+                {"first name": "james"},
+                {"first name": "sumiya"}
+            ]
+        }
+        self.callhub.session.get.return_value.result.return_value.json.return_value = page_json
+        expected_result = page_json["results"].copy()
+        # We expect get_contacts to fetch either the limit/page_size pages or the total/page_size pages, depending
+        # on which is smaller
+        expected_result *= min(math.ceil(limit/len(page_json["results"])), math.ceil(count/len(page_json["results"])))
+        # We then expect get_contacts to trim the result to exactly the limit (because we fetch in batches equal to the
+        # page size but the limit is for the exact number of contacts)
+        expected_result = expected_result[:limit]
+        self.assertEqual(self.callhub.get_contacts(limit), expected_result)
+        # Test number of contacts matches size given
+        self.assertEqual(len(self.callhub.get_contacts(limit)), min(limit, count))
+
+    def test_get_all_contacts(self):
+        # Test different variations of get_all_contacts with different numbers of contacts and different limits
+        # Test when no contacts exist
+        self.get_all_contacts(limit=50, count=0)
+        # Test when limit is zero
+        self.get_all_contacts(limit=0, count=50)
+        # Test when limit > contacts
+        self.get_all_contacts(limit=50, count=40)
+        # Test with odd number limit
+        self.get_all_contacts(limit=49, count=55)
+        # Test with even number limit
+        self.get_all_contacts(limit=50, count=55)
+        # Test with 500 error
+        self.assertRaises(RuntimeError, self.get_all_contacts, limit=50, count=50, status=500)
 
 if __name__ == '__main__':
     unittest.main()
