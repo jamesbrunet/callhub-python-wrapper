@@ -155,15 +155,32 @@ class CallHub:
         fetched = 0
         contacts_url = "https://api.callhub.io/v1/contacts/"
         contact_list = []
-        while fetched < limit:
-            contacts = self.session.get(contacts_url).json()
-            print("{}/{} fetched. ({}%)".format(fetched, min(limit, contacts["count"]), round(fetched*100 / min(limit, contacts["count"]), 1)))
-            fetched += len(contacts["results"])
+        first_page = self.session.get(contacts_url).result().json()
+
+        # Calculate number of pages
+        page_size = len(first_page["results"])
+        num_pages = min(math.ceil(first_page["count"]/page_size), math.ceil(limit/page_size))
+        requests = []
+        fetched = 0
+        for i in range(1, num_pages+1):
+            fetched += page_size
+            print("Sent requests for {}/{} contacts ({}%)".format(fetched, min(limit, first_page["count"]),
+                                                round(fetched * 100 / min(limit, first_page["count"]), 1)))
+            requests.append(self.session.get(contacts_url, params={"page": i}))
+
+        print("Resolving requests")
+        for i, request in enumerate(requests):
+            current_contact = i * page_size
+            total_contacts = len(requests) * page_size
+            if current_contact % 100 == 0:
+                print("Resolving responses for {}/{} contacts ({}%)".format(current_contact, total_contacts,
+                                                                            round(current_contact * 100 / total_contacts)))
+            request = request.result()
+            contacts = request.json()
             contact_list += contacts["results"]
-            if contacts["next"]:
-                contacts_url = contacts["next"]
-            else:
-                break
+
+            if request.status_code != 200:
+                raise RuntimeError("Request {} status code {}".format(request.text,request.status_code))
 
         contact_list = contact_list[:limit]
         return contact_list

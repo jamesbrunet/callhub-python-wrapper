@@ -27,5 +27,9 @@ class TestInit(unittest.TestCase):
         contacts = [{"first name": "James", "contact": 5555555555}, {"last name": "Brunet", "contact": 1234567890}]
         self.assertEqual(self.callhub._collect_fields(contacts), {"first name", "last name", "contact"})
 
+    @classmethod
+    def tearDownClass(cls):
+        cls.callhub.session.close()
+
 if __name__ == '__main__':
     unittest.main()
