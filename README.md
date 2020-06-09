@@ -12,10 +12,11 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Bulk create contacts
 * Get agent leaderboard
 * Get all fields and IDs (including custom fields)
+* Bulk get contacts and fields
+* Create single contact
 
 ### Currently on roadmap
 * Create phonebook
-* Create single contact
 * Add/delete/get contacts to/from DNC list
 * Create/get/delete webhook
 * Create/get teams
