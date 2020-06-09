@@ -3,10 +3,17 @@ from .auth import CallHubAuth
 from ratelimit import limits, sleep_and_retry
 from .bulk_upload_tools import csv_and_mapping_create
 from requests.structures import CaseInsensitiveDict
+import types
 
 
 class CallHub:
-    def __init__(self, api_key=None, rate_limit=True):
+
+    API_LIMIT = {
+        "GENERAL": {"calls": 18, "period": 1},
+        "BULK_CREATE": {"calls": 1, "period": 70},
+    }
+
+    def __init__(self, api_key=None, rate_limit=API_LIMIT):
         """
         Instantiates a new CallHub instance
         >>> callhub = CallHub()
@@ -15,20 +22,27 @@ class CallHub:
         Keyword Args:
             api_key (``str``, optional): Optional API key. If not provided,
                 it will attempt to use ``os.environ['CALLHUB_API_KEY']``
-            timeout (``bool``, optional): Optional ratelimiting. Tested in single thread mode only.
-                - Limits bulk_create to 1 per 70 seconds (CallHub states their limit is every 60s but in practice
-                  a delay of 60s exactly can trip their rate limiter anyways)
-                - Limits all other API requests to 2 per second
+            rate_limit (``dict``, optional): Enabled by default with settings that respect callhub's API limits.
+                Setting this to false disables ratelimiting, or you can set your own limits by following the example
+                below. Please don't abuse! :)
+                >>> callhub = CallHub(rate_limit={"GENERAL": {"calls": 18, "period": 1},
+                >>>                               "BULK_CREATE": {"calls": 1, "period": 70}})
+                - Default limits bulk_create to 1 per 70 seconds (CallHub states their limit is every 60s but in
+                  practice a delay of 60s exactly can trip their rate limiter anyways)
+                - Default limits all other API requests to 18 per second (CallHub support states their limit is 20/s but
+                  this plays it on the safe side, because other rate limiters seem a little sensitive)
         """
+        self.session = requests.Session()
+
         if rate_limit:
             # Apply general rate limit to requests.session.get
-            requests.Session.get = sleep_and_retry(limits(calls=2, period=1)(requests.Session.get))
+            rate_limited_get = sleep_and_retry(limits(**rate_limit["GENERAL"])(requests.Session.get))
+            self.session.get = types.MethodType(rate_limited_get, self.session)
+            #requests.Session.get = sleep_and_retry(limits(calls=18, period=1)(requests.Session.get))
             # Apply bulk rate limit to self.bulk_create
-            self.bulk_create = sleep_and_retry(limits(calls=1, period=70)(self.bulk_create))
+            self.bulk_create = sleep_and_retry(limits(**rate_limit["BULK_CREATE"])(self.bulk_create))
 
-        session = requests.Session()
-        session.auth = CallHubAuth(api_key=api_key)
-        self.session = session
+        self.session.auth = CallHubAuth(api_key=api_key)
 
     def _collect_fields(self, contacts):
         """ Internal Function to get all fields used in a list of contacts """
@@ -93,7 +107,6 @@ class CallHub:
 
             response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
                                   files={'contacts_csv': csv_file})
-
             if response.json().get("message") == "'Import in progress. You will get an email when import is complete'":
                 return True
             elif 'Request was throttled.' in response.json().get("detail"):
