@@ -24,6 +24,9 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Add/delete agent to/from team
 * Create/delete agent
 
+### In evaluation
+* Using async requests to improve speed for repetitive calls (like in get_contacts)
+
 # Usage
     callhub = CallHub(api_key="123456789ABCDEF")
     phonebook_id = 6545324
