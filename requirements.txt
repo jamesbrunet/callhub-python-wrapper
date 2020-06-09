@@ -1,2 +1,3 @@
-requests~=2.23.0
-ratelimit~=2.2.1
+ratelimit==2.2.1
+requests==2.23.0
+requests-futures==1.0.0
