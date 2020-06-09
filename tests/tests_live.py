@@ -1,9 +1,9 @@
 import unittest
 from callhub import CallHub
-import os
 
-'''NOTE: Mocking not set up here. Testing with this file makes LIVE CHANGES to your CallHub account.
+'''NOTE: Mockng not set up here. Testing with this file makes LIVE CHANGES to your CallHub account.
 RUN THESE TESTS AT YOUR OWN RISK!!!!'''
+
 
 class TestInit(unittest.TestCase):
     @classmethod
