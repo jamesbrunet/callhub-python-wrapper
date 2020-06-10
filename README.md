@@ -6,6 +6,8 @@ CallHub API Client Wrapper for Python
 
 Creates a clean(er) python interface to several important functions of the CallHub API.
 
+![project-logo](https://raw.githubusercontent.com/jamesbrunet/callhub-python-wrapper/master/docs/assets/logo-transparent.png)
+
 ### Installation
 
 `pip install callhub-python-wrapper`
