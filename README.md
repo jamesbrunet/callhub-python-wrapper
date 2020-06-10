@@ -6,6 +6,12 @@ CallHub API Client Wrapper for Python
 
 Creates a clean(er) python interface to several important functions of the CallHub API.
 
+### Installation
+
+`pip install callhub-python-wrapper`
+
+*Requires Python 3.5 or higher*
+
 ### Features
 
 * Built-in (optional) ratelimiting that respects CallHub's varying rate limits for different functions
@@ -33,6 +39,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 
 # Usage
 
+    import callhub
     callhub = CallHub(api_key="123456789ABCDEF")
     phonebook_id = 6545324
     contacts = [{'first name': 'Sumiya', 'phone number':'5555555555', 'mobile number': '5555555555'},
