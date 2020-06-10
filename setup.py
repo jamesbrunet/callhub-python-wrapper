@@ -8,11 +8,17 @@ about = {}
 with open(os.path.join(here, "callhub", "__version__.py"), mode="r") as f:
     exec(f.read(), about)
 
+README = ""
+with open(os.path.join(here, "README.md"), mode="r") as f:
+    README = f.read()
+
 install_requires = ["requests==2.23.0", "ratelimit==2.2.1", "requests-futures==1.0.0"]
 
 setup(
     name=about["__name__"],
     description=about["__description__"],
+    long_description=README,
+    long_description_content_type="text/markdown",
     author=about["__author__"],
     author_email=about["__authoremail__"],
     url=about["__url__"],
