@@ -1,10 +1,16 @@
 # CallHub Python Wrapper
 
-[![Build Status](https://travis-ci.org/jamesbrunet/callhub-python-wrapper.svg?branch=master)](https://travis-ci.org/jamesbrunet/callhub-python-wrapper) [![Coverage Status](https://coveralls.io/repos/github/jamesbrunet/callhub-python-wrapper/badge.svg?branch=master)](https://coveralls.io/github/jamesbrunet/callhub-python-wrapper?branch=master)
+[![Build Status](https://travis-ci.org/jamesbrunet/callhub-python-wrapper.svg?branch=master)](https://travis-ci.org/jamesbrunet/callhub-python-wrapper) [![Coverage Status](https://coveralls.io/repos/github/jamesbrunet/callhub-python-wrapper/badge.svg?branch=master)](https://coveralls.io/github/jamesbrunet/callhub-python-wrapper?branch=master) [![PyPI version](https://badge.fury.io/py/callhub-python-wrapper.svg)](https://badge.fury.io/py/callhub-python-wrapper)
 
 CallHub API Client Wrapper for Python
 
 Creates a clean(er) python interface to several important functions of the CallHub API.
+
+### Installation
+
+`pip install callhub-python-wrapper`
+
+*Requires Python 3.5 or higher*
 
 ### Features
 
@@ -33,6 +39,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 
 # Usage
 
+    import callhub
     callhub = CallHub(api_key="123456789ABCDEF")
     phonebook_id = 6545324
     contacts = [{'first name': 'Sumiya', 'phone number':'5555555555', 'mobile number': '5555555555'},
