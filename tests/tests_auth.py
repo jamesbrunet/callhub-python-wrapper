@@ -50,10 +50,20 @@ class TestInit(unittest.TestCase):
                                                    'username': 'admin@example.com'}],
                                         'teams': [],
                                         'username': 'defaultuser'}]
-                           },
-                     complete_qs=True,
-                     )
+                           })
             self.assertEqual(CallHub(api_key="G00D4P1K3Y").validate_api_key(), "admin@example.com")
+
+    def test_api_key_good_no_users(self):
+        with Mocker() as mock:
+            mock.get("https://api.callhub.io/v1/agents/",
+                     json={'count': 0,
+                           'next': None,
+                           'previous': None,
+                           'results': []
+                           })
+            self.assertEqual(CallHub(api_key="G00D4P1K3Y").validate_api_key(), "Cannot deduce admin account. No agent "
+                                                                               "accounts (not even the default "
+                                                                               "account) exist.")
 
     def test_api_key_bad(self):
         with Mocker() as mock:
