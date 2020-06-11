@@ -42,7 +42,12 @@ class CallHub:
             self.bulk_create = sleep_and_retry(limits(**rate_limit["BULK_CREATE"])(self.bulk_create))
 
         self.session.auth = CallHubAuth(api_key=api_key)
-        self.admin_email = self.get_admin_email()
+
+        # validate_api_key returns administrator email on success
+        self.admin_email = self.validate_api_key()
+
+
+
 
     def __repr__(self):
         return "<CallHub admin: {}>".format(self.admin_email)
@@ -78,12 +83,27 @@ class CallHub:
                               "created in CallHub. Fields present in upload: {} Fields present in "
                               "account: {}".format(fields_in_contact, fields_in_callhub))
 
-    def get_admin_email(self):
+    def validate_api_key(self):
+        """
+        Returns admin email address if API key is valid. In rare cases, may be unable to find admin email address, and
+        returns a warning in that case. If API key invalid, raises ValueError. If the CallHub API returns unexpected
+        information, raises RunTimeError.
+        Returns:
+            username (``str``): Email of administrator account
+        """
         response = self.session.get("https://api.callhub.io/v1/agents/").result()
-        if response.json().get("count"):
-            return response.json()["results"][0]["owner"][0]["username"]
+        if response.json().get("detail") in ['User inactive or deleted.', 'Invalid token.']:
+            raise ValueError("Bad API Key")
+        elif "count" in response.json():
+            if response.json()["count"]:
+                return response.json()["results"][0]["owner"][0]["username"]
+            else:
+                return "Cannot deduce admin account. No agent accounts (not even the default account) exist."
         else:
-            return "Cannot deduce admin account. No agent accounts (not even the default account) exist."
+            raise RuntimeError("CallHub API is not returning expected values, but your api_key is fine. Their API "
+                               "specifies that https://api.callhub.io/v1/agents returns a 'count' field, but this was "
+                               "not returned. Please file an issue on GitHub for this project, if an issue for this not "
+                               "already exist.")
 
     def agent_leaderboard(self, start, end):
         params = {"start_date": start, "end_date": end}
