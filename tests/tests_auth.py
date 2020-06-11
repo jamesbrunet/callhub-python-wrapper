@@ -1,21 +1,30 @@
 import os
-
 import unittest
 from unittest.mock import MagicMock
+from requests_mock import Mocker
 from callhub import CallHub
 
 
 class TestInit(unittest.TestCase):
     def create_callhub(self, api_key=None):
-        callhub = CallHub(api_key=api_key, rate_limit=False)
-        # Override all http methods with mocking so a poorly designed test can't mess with
-        callhub.session.get = MagicMock(returnvalue=None)
-        callhub.session.post = MagicMock(returnvalue=None)
-        callhub.session.put = MagicMock(returnvalue=None)
-        callhub.session.delete = MagicMock(returnvalue=None)
-        callhub.session.head = MagicMock(returnvalue=None)
-        callhub.session.options = MagicMock(returnvalue=None)
-        return True
+        with Mocker() as mock:
+            mock.get("https://api.callhub.io/v1/agents/",
+                     status_code=200,
+                     json={'count': 1,
+                           'next': None,
+                           'previous': None,
+                           'results': [{'email': 'user@example.com',
+                                        'id': 1111111111111111111,
+                                        'owner': [{'url': 'https://api.callhub.io/v1/users/0/',
+                                                   'username': 'admin@example.com'}],
+                                        'teams': [],
+                                        'username': 'defaultuser'}]
+                           },
+                     complete_qs=True,
+                     )
+
+            self.callhub = CallHub(api_key=api_key, rate_limit=False)
+            return True
 
     def setUp(self):
         os.environ["CALLHUB_API_KEY"] = "123456789ABCDEF"
