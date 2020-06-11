@@ -3,6 +3,8 @@ from unittest.mock import MagicMock
 from callhub import CallHub
 import time
 import math
+from requests_mock import Mocker
+
 
 class TestInit(unittest.TestCase):
     @classmethod
