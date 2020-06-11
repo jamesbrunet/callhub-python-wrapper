@@ -12,6 +12,7 @@ README = ""
 with open(os.path.join(here, "README.md"), mode="r") as f:
     README = f.read()
 
+tests_require = ["requests-mock"]
 install_requires = ["requests==2.23.0", "ratelimit==2.2.1", "requests-futures==1.0.0"]
 
 setup(
@@ -25,6 +26,7 @@ setup(
     version=about["__version__"],
     packages=["callhub"],
     install_requires=install_requires,
+    tests_requre=tests_require,
     python_requires=">=3.5",
     keywords=["callhub", "api"],
     license=about["__license__"],

@@ -42,6 +42,10 @@ class CallHub:
             self.bulk_create = sleep_and_retry(limits(**rate_limit["BULK_CREATE"])(self.bulk_create))
 
         self.session.auth = CallHubAuth(api_key=api_key)
+        self.admin_email = self.get_admin_email()
+
+    def __repr__(self):
+        return "<CallHub admin: {}>".format(self.admin_email)
 
     def _collect_fields(self, contacts):
         """ Internal Function to get all fields used in a list of contacts """
@@ -74,9 +78,16 @@ class CallHub:
                               "created in CallHub. Fields present in upload: {} Fields present in "
                               "account: {}".format(fields_in_contact, fields_in_callhub))
 
+    def get_admin_email(self):
+        response = self.session.get("https://api.callhub.io/v1/agents/").result()
+        if response.json().get("count"):
+            return response.json()["results"][0]["owner"][0]["username"]
+        else:
+            return "Cannot deduce admin account. No agent accounts (not even the default account) exist."
+
     def agent_leaderboard(self, start, end):
         params = {"start_date": start, "end_date": end}
-        response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard", params=params).result()
+        response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard/", params=params).result()
         return response.json().get("plot_data")
 
     def fields(self):
