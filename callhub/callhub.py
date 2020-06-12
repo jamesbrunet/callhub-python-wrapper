@@ -46,9 +46,6 @@ class CallHub:
         # validate_api_key returns administrator email on success
         self.admin_email = self.validate_api_key()
 
-
-
-
     def __repr__(self):
         return "<CallHub admin: {}>".format(self.admin_email)
 
@@ -182,32 +179,77 @@ class CallHub:
         Args:
             limit (``int``): Limit of number of contacts to get. If limit not provided, will
                 return first 100 contacts.
+        Returns:
+            contact_list (``list``): List of contacts, where each contact is a dict of key value pairs.
         """
-        fetched = 0
         contacts_url = "https://api.callhub.io/v1/contacts/"
-        contact_list = []
-        first_page = self.session.get(contacts_url).result().json()
+        return self._get_paged_data(contacts_url, limit)
 
-        # Handle either limit of 0 or no contacts
+    def _get_paged_data(self, url, limit):
+        """
+        Internal function. Leverages _bulk_requests to aggregate paged data and return it quickly.
+        Args:
+            url (``str``): API endpoint to get paged data from.
+            limit (``int``): Limit of paged data to get. Must be explicitly set. CallHub accounts can realistically have
+                millions of records, (hundreds of thousands of pages), and we don't want to spend hours executing this
+                function with no limit by default and causing problems.
+        Returns:
+            paged_data (``list``) All of the paged data as a signle list of dicts, where each dict contains key value
+                pairs that represent each individual item in a page.
+        """
+        first_page = self.session.get(url).result().json()
+
+        # Handle either limit of 0 or no results
         if first_page["count"] == 0 or limit == 0:
             return []
 
         # Calculate number of pages
         page_size = len(first_page["results"])
         num_pages = min(math.ceil(first_page["count"]/page_size), math.ceil(limit/page_size))
+
         requests = []
-        fetched = 0
         for i in range(1, num_pages+1):
-            fetched += page_size
-            requests.append(self.session.get(contacts_url, params={"page": i}))
+            requests.append({"func": self.session.get,
+                             "func_params": {"url": url, "params": {"page": i}},
+                             "expected_status": 200})
+        responses_list = self._bulk_request(requests)
 
-        for i, request in enumerate(requests):
-            request = request.result()
-            contacts = request.json()
-            contact_list += contacts["results"]
+        # Turn list of responses into aggregated data from all pages
+        paged_data = []
+        for response in responses_list:
+            paged_data += response.json()["results"]
+        paged_data = paged_data[:limit]
+        return paged_data
 
-            if request.status_code != 200:
-                raise RuntimeError("Request {} status code {}".format(request.text, request.status_code))
-
-        contact_list = contact_list[:limit]
-        return contact_list
+    def _bulk_request(self, requests_list, aggregate_json_value=None):
+        """
+        Internal function. Executes a list of requests in batches, asynchronously. Allows fast execution of many reqs.
+        >>> requests_list = [{"func": session.get,
+        >>>                   "func_params": {"url":"https://api.callhub.io/v1/contacts/", "params":{"page":"1"}}}
+        >>>                   "expected_status": 200]
+        >>> bulk_requests(requests_list)
+        Args:
+            requests_list (``list``): List of dicts that each include a request function, its parameters, and an
+                optional expected status. These will be executed in batches.
+        """
+        # Send bulk requests in batches of at most 500
+        batch_size = 500
+        requests_awaiting_response = []
+        responses = []
+        for i, request in enumerate(requests_list):
+            # Execute request asynchronously
+            requests_awaiting_response.append(request["func"](**request["func_params"]))
+            # Every time we execute batch_size requests OR we have made our last request, wait for all requests
+            # to have received responses before continuing. This batching prevents us from having tens or hundreds of
+            # thousands of pending requests with CallHub
+            if i % batch_size == 0 or i == (len(requests_list)-1):
+                for req_awaiting_response in requests_awaiting_response:
+                    response = req_awaiting_response.result()
+                    if requests_list[i]["expected_status"] and response.status_code != int(requests_list[i]["expected_status"]):
+                        raise RuntimeError("Status code {} when making request to: "
+                                           "{} (expected {})".format(response.status_code,
+                                                                     requests_list[i]["func_params"]["url"],
+                                                                     requests_list[i]["expected_status"]))
+                    responses.append(response)
+                requests_awaiting_response = []
+        return responses

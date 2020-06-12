@@ -184,10 +184,10 @@ class TestInit(unittest.TestCase):
         expected_result = expected_result[:limit]
         with Mocker() as mock:
             mock.get('https://api.callhub.io/v1/contacts/', status_code=status, json=page_json)
-            # Test that the results of get_contacts match the expected results
-            self.assertEqual(self.callhub.get_contacts(limit), expected_result)
             # Test number of contacts matches size given
             self.assertEqual(len(self.callhub.get_contacts(limit)), min(limit, count))
+            # Test that the results of get_contacts match the expected results
+            self.assertEqual(self.callhub.get_contacts(limit), expected_result)
 
     def test_get_all_contacts(self):
         # Test different variations of get_all_contacts with different numbers of contacts and different limits
