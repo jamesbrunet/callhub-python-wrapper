@@ -227,7 +227,7 @@ class CallHub:
         >>> requests_list = [{"func": session.get,
         >>>                   "func_params": {"url":"https://api.callhub.io/v1/contacts/", "params":{"page":"1"}}}
         >>>                   "expected_status": 200]
-        >>> bulk_requests(requests_list)
+        >>> _bulk_request(requests_list)
         Args:
             requests_list (``list``): List of dicts that each include a request function, its parameters, and an
                 optional expected status. These will be executed in batches.
