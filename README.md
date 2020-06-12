@@ -1,6 +1,6 @@
 # CallHub Python Wrapper
 
-[![Build Status](https://travis-ci.org/jamesbrunet/callhub-python-wrapper.svg?branch=master)](https://travis-ci.org/jamesbrunet/callhub-python-wrapper) [![Coverage Status](https://coveralls.io/repos/github/jamesbrunet/callhub-python-wrapper/badge.svg?branch=master)](https://coveralls.io/github/jamesbrunet/callhub-python-wrapper?branch=master) ![PyPI - Downloads](https://img.shields.io/pypi/dm/callhub-python-wrapper)
+[![Build Status](https://travis-ci.org/jamesbrunet/callhub-python-wrapper.svg?branch=master)](https://travis-ci.org/jamesbrunet/callhub-python-wrapper) [![Coverage Status](https://coveralls.io/repos/github/jamesbrunet/callhub-python-wrapper/badge.svg?branch=master)](https://coveralls.io/github/jamesbrunet/callhub-python-wrapper?branch=master) ![PyPI - Downloads](https://img.shields.io/pypi/dm/callhub-python-wrapper?color=green&label=pypi%20downloads)
 
 CallHub API Client Wrapper for Python
 
