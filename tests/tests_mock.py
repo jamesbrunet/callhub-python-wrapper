@@ -204,6 +204,62 @@ class TestInit(unittest.TestCase):
         # Test with 500 error
         self.assertRaises(RuntimeError, self.get_all_contacts, limit=50, count=50, status=500)
 
+    def test_get_dnc_lists(self):
+        expected_result = {
+            "5543": "Default DNC List",
+            "8794": "SMS Campaign 2020-01-1",
+        }
+        callhub_api_json = {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "url": "https://api.callhub.io/v1/dnc_lists/5543/",
+                    "owner": "does not matter",
+                    "name": "Default DNC List"
+                },
+                {
+                    "url": "https://api.callhub.io/v1/dnc_lists/8794/",
+                    "owner": "does not matter",
+                    "name": "SMS Campaign 2020-01-1"
+                },
+            ]
+        }
+        with Mocker() as mock:
+            mock.get('https://api.callhub.io/v1/dnc_lists/', status_code=200, json=callhub_api_json)
+            self.assertEqual(self.callhub.get_dnc_lists(), expected_result)
+
+    def test_get_dnc_phones(self):
+        expected_result = {"16135554432": [
+            {"list_id": "5543", "name": "Default DNC List", "dnc_contact_id": "9964"},
+            {"list_id": "8794", "name": "SMS Campaign 2020-01-1", "dnc_contact_id": "8894"}
+        ]}
+        callhub_api_json = {
+            "count": 2,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "url": "https://api.callhub.io/v1/dnc_contacts/9964/",
+                    "dnc": "https://api.callhub.io/v1/dnc_lists/5543/",
+                    "phone_number": "16135554432"
+                },
+                {
+                    "url": "https://api.callhub.io/v1/dnc_contacts/8894/",
+                    "dnc": "https://api.callhub.io/v1/dnc_lists/8794/",
+                    "phone_number": "16135554432"
+                },
+            ]
+        }
+        get_dnc_lists_json = {
+            "5543": "Default DNC List",
+            "8794": "SMS Campaign 2020-01-1",
+        }
+        self.callhub.get_dnc_lists = MagicMock(return_value=get_dnc_lists_json)
+        with Mocker() as mock:
+            mock.get('https://api.callhub.io/v1/dnc_contacts/', status_code=200, json=callhub_api_json)
+            self.assertEqual(self.callhub.get_dnc_phones(), expected_result)
 
 if __name__ == '__main__':
     unittest.main()

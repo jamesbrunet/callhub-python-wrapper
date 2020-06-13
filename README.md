@@ -29,11 +29,12 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Get all fields and IDs (including custom fields)
 * Bulk get contacts and fields
 * Create single contact
+* Get all phone numbers on DNC list
 
 ### Currently on roadmap
 
 * Create phonebook
-* Add/delete/get contacts to/from DNC list
+* Add/delete contacts to/from DNC list(s)
 * Create/get/delete webhook
 * Create/get teams
 * Add/delete agent to/from team
@@ -55,4 +56,11 @@ Creates a clean(er) python interface to several important functions of the CallH
     callhub.create_contact(contacts[0])
     
     # Get all contacts (up to a user-specified limit)
-    callhub.get_contacts(1000000)
+    callhub.get_contacts(limit=1000000)
+    
+    # Get names and ids of all do-not-contact lists
+    callhub.get_dnc_lists()
+    
+    # Get all phone numbers marked do-not-contact and the do-not
+    # contact list(s) that they are associated with
+    callhub.get_dnc_phones()

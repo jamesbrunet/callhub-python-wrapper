@@ -6,6 +6,8 @@ from requests.structures import CaseInsensitiveDict
 import types
 import math
 from requests_futures.sessions import FuturesSession
+from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
 
 class CallHub:
     API_LIMIT = {
@@ -32,7 +34,7 @@ class CallHub:
                 - Default limits all other API requests to 18 per second (CallHub support states their limit is 20/s but
                   this plays it on the safe side, because other rate limiters seem a little sensitive)
         """
-        self.session = FuturesSession()
+        self.session = FuturesSession(max_workers=43)
 
         if rate_limit:
             # Apply general rate limit to self.session.get
@@ -185,14 +187,13 @@ class CallHub:
         contacts_url = "https://api.callhub.io/v1/contacts/"
         return self._get_paged_data(contacts_url, limit)
 
-    def _get_paged_data(self, url, limit):
+    def _get_paged_data(self, url, limit=float(math.inf)):
         """
         Internal function. Leverages _bulk_requests to aggregate paged data and return it quickly.
         Args:
             url (``str``): API endpoint to get paged data from.
-            limit (``int``): Limit of paged data to get. Must be explicitly set. CallHub accounts can realistically have
-                millions of records, (hundreds of thousands of pages), and we don't want to spend hours executing this
-                function with no limit by default and causing problems.
+        Keyword Args:
+            limit (``float or int``): Limit of paged data to get. Default is infinity.
         Returns:
             paged_data (``list``) All of the paged data as a signle list of dicts, where each dict contains key value
                 pairs that represent each individual item in a page.
@@ -203,9 +204,12 @@ class CallHub:
         if first_page["count"] == 0 or limit == 0:
             return []
 
+        # Set limit to the smallest of either the count or the limit
+        limit = min(first_page["count"], limit)
+
         # Calculate number of pages
         page_size = len(first_page["results"])
-        num_pages = min(math.ceil(first_page["count"]/page_size), math.ceil(limit/page_size))
+        num_pages = math.ceil(limit/page_size)
 
         requests = []
         for i in range(1, num_pages+1):
@@ -253,3 +257,35 @@ class CallHub:
                     responses.append(response)
                 requests_awaiting_response = []
         return responses
+
+    def get_dnc_lists(self):
+        """
+        Returns ids and names of all do-not-contact lists
+        Returns:
+            dnc_lists (``dict``): Dictionary of dnc lists where the key is the id and the value is the name
+        """
+        dnc_lists = self._get_paged_data("https://api.callhub.io/v1/dnc_lists/")
+        return {dnc_list['url'].split("/")[-2]: dnc_list["name"] for dnc_list in dnc_lists}
+
+    def get_dnc_phones(self):
+        """
+        Returns all phone numbers in all DNC lists
+        Returns:
+            dnc_phones (``dict``): Dictionary of all phone numbers in all dnc lists. A phone number may be associated
+                with multiple dnc lists. Note that each phone number on each dnc list has a unique "dnc contact id" that
+                has NOTHING to do with the contact id of the actual contacts related to those phone numbers. Schema:
+                >>> dnc_contacts = {"16135554432": [
+                >>>                                    {"list_id": 5543, "name": "Default DNC List", "dnc_contact_id": 1234}
+                >>>                                    {"list_id": 8794, "name": "SMS Campaign", "dnc_contact_id": 4567}
+                >>>                                 ]}}
+        """
+        dnc_contacts = self._get_paged_data("https://api.callhub.io/v1/dnc_contacts/")
+        dnc_lists = self.get_dnc_lists()
+        dnc_phones = defaultdict(list)
+        for dnc_contact in dnc_contacts:
+            phone = dnc_contact["phone_number"]
+            dnc_list_id = dnc_contact["dnc"].split("/")[-2]
+            dnc_contact_id = dnc_contact["url"].split("/")[-2]
+            dnc_list = {"list_id": dnc_list_id, "name": dnc_lists[dnc_list_id], "dnc_contact_id": dnc_contact_id}
+            dnc_phones[phone].append(dnc_list)
+        return dict(dnc_phones)
