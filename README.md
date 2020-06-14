@@ -46,9 +46,10 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Create/delete agent
 
 # Usage
-
+##### Initialization
     import callhub
     callhub = CallHub(api_key="123456789ABCDEF")
+##### Contacts
     phonebook_id = 6545324
     contacts = [{'first name': 'Sumiya', 'phone number':'5555555555', 'mobile number': '5555555555'},
                {'first name': 'Joe', 'phone number':'5555555555', 'mobile number':'5555555555'}]
@@ -63,6 +64,9 @@ Creates a clean(er) python interface to several important functions of the CallH
     # Get all contacts (up to a user-specified limit)
     callhub.get_contacts(limit=1000000)
     
+    # Get all contacts with no limit (this might take a while, see performance notes)
+    callhub.get_contacts()
+##### DNC Lists
     # Get names and ids of all do-not-contact lists
     callhub.get_dnc_lists()
     
@@ -70,23 +74,36 @@ Creates a clean(er) python interface to several important functions of the CallH
     # contact list(s) that they are associated with
     callhub.get_dnc_phones()
     
-    # Add phone number 555-555-5555 to DNC list 123456789
+    # Create a DNC list
+    list_id = callhub.create_dnc_list("My DNC List Name")
+    
+    # Delete a DNC list
+    callhub.remove_dnc_list(list_id)
+    
+    # Add phone number 555-555-5555 to DNC list id 123456789
     callhub.add_dnc(["5555555555"], "123456789")
     
-    # Add multiple phone numbers to dnc list 12345689
+    # Add multiple phone numbers to DNC list id 12345689
     callhub.add_dnc(["5555555555","5554443333"], "123456789")
+    
+    # Remove number(s) from all DNC lists
+    callhub.remove_dnc(["5554443333"])
+    
+    # Remove number(s) from specific DNC list id
+    callhub.remove_dnc(["5555555555"], "123456789")
+    
 # Performance Notes
 
 ##### Bulk creating contacts works differently from most other functions
 
 This takes advantage of CallHub's built in bulk_create API endpoint, so expect equivalent speeds to uploading a spreadsheet of contacts as a normal admin user. Note that bulk_create can only be called once every 70 seconds to comply with a special CallHub ratelimit on this endpoint.
 
-##### It's faster to call add_dnc with ten numbers than to call add_dnc with one number ten times
+##### It's faster to call add_dnc/remove_dnc with ten numbers than to call add_dnc/remove_dnc with one number ten times
 
-If you use this library to make looping calls on most functions (e.g. add_dnc), you can expect a performance of about 1 request/second. This is because all functions wait until they receives a response from the server before exiting.
+If you use this library to make looping calls on most functions (e.g. add_dnc), you can expect a performance of about 0.5-1 requests/second. This is because all functions wait until they receives a response from the server before exiting.
 
-However, you can get much faster performance if you call add_dnc with a list of ten contacts (as opposed to ten times with one contact each time). This is because every function that does many similar repetitive API calls leverages async requests for repetitive calls (makes a large batch of requests and then waits for that pool of requests to finish.) Because of this, we can achieve real-world speeds of adding 10 numbers to a DNC list per second for large batches of numbers (CallHub's API limit is 20/s).
+However, you can get much faster performance if you call these functions with a list of contacts (as opposed to ten times with one contact each time). This is because every function that does many similar repetitive API calls leverages async requests for repetitive calls (makes a large batch of requests and then waits for that pool of requests to finish.) Because of this, we can achieve real-world speeds of adding 5-10 numbers to a DNC list per second for large batches of numbers (CallHub's API limit is 20/s).
 
 ##### Fetching contacts with get_contacts can take a while
 
-CallHub only gives us 10 contacts per api request when using get_contacts, so expect this script to fetch contacts at about 100 contacts/s. That's about 17 minutes to fetch 100K contacts!
+CallHub only gives us 10 contacts per api request when using get_contacts, so expect this library to fetch contacts at about 100 contacts/s. That's about 17 minutes to fetch 100K contacts!
