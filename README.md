@@ -33,11 +33,12 @@ Creates a clean(er) python interface to several important functions of the CallH
 ### Implemented but not in latest release
 * Get all phone numbers on DNC list
 * Get all DNC lists
+* Add number to DNC list
 
 ### Currently on roadmap
 
 * Create phonebook
-* Add/delete contacts to/from DNC list(s)
+* Delete contact(s) from DNC list
 * Create/get/delete webhook
 * Create/get teams
 * Add/delete agent to/from team
