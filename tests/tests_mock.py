@@ -258,8 +258,22 @@ class TestInit(unittest.TestCase):
         }
         self.callhub.get_dnc_lists = MagicMock(return_value=get_dnc_lists_json)
         with Mocker() as mock:
-            mock.get('https://api.callhub.io/v1/dnc_contacts/', status_code=200, json=callhub_api_json)
+            mock.get("https://api.callhub.io/v1/dnc_contacts/", status_code=200, json=callhub_api_json)
             self.assertEqual(self.callhub.get_dnc_phones(), expected_result)
+
+    def test_add_dnc(self):
+        expected_result = "12345678"
+        callhub_api_json = {
+          "url": "https://api.callhub.io/v1/dnc_contacts/12345678/",
+          "dnc": "https://api.callhub.io/v1/dnc_lists/987654321/",
+          "phone_number": "15555555555"
+        }
+        with Mocker() as mock:
+            mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=201, json=callhub_api_json)
+            self.assertEqual(self.callhub.add_dnc("15555555555", "987654321"), expected_result)
+            mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=400, json="error message")
+            self.assertRaises(RuntimeError, self.callhub.add_dnc, "15555555555", "987654321")
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -64,3 +64,6 @@ Creates a clean(er) python interface to several important functions of the CallH
     # Get all phone numbers marked do-not-contact and the do-not
     # contact list(s) that they are associated with
     callhub.get_dnc_phones()
+    
+    # Add phone number 555-555-5555 to DNC list 123456789
+    callhub.add_dnc("5555555555", "123456789")

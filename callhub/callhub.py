@@ -272,8 +272,8 @@ class CallHub:
         Returns all phone numbers in all DNC lists
         Returns:
             dnc_phones (``dict``): Dictionary of all phone numbers in all dnc lists. A phone number may be associated
-                with multiple dnc lists. Note that each phone number on each dnc list has a unique "dnc contact id" that
-                has NOTHING to do with the contact id of the actual contacts related to those phone numbers. Schema:
+                with multiple dnc lists. Note that each phone number on each dnc list has a unique dnc_contact_id that
+                has NOTHING to do with the contact_id of the actual contacts related to those phone numbers. Schema:
                 >>> dnc_contacts = {"16135554432": [
                 >>>                                    {"list_id": 5543, "name": "Default DNC List", "dnc_contact_id": 1234}
                 >>>                                    {"list_id": 8794, "name": "SMS Campaign", "dnc_contact_id": 4567}
@@ -289,3 +289,23 @@ class CallHub:
             dnc_list = {"list_id": dnc_list_id, "name": dnc_lists[dnc_list_id], "dnc_contact_id": dnc_contact_id}
             dnc_phones[phone].append(dnc_list)
         return dict(dnc_phones)
+
+    def add_dnc(self, phone_number, dnc_list_id):
+        """
+        Adds phone number to a DNC list of choice
+        Args:
+            phone_number (``str``): Phone number to add to DNC
+            dnc_list (``str``): DNC list id to add contact to
+        Returns:
+            dnc_contact_id (``str``): A unique id for this entry in the do-not-contact database. Every phone number on
+                every dnc list has a unique dnc_contact_id that is unrelated to the contact_id of the actual contacts
+                related to those phone numbers
+        """
+        data = {'dnc': 'https://api.callhub.io/v1/dnc_lists/{}/'.format(dnc_list_id), 'phone_number': phone_number}
+        response = self.session.post('https://api.callhub.io/v1/dnc_contacts/', data=data).result()
+
+        if response.status_code != 201:
+            raise RuntimeError("Status code {} when adding DNC: {}".format(response.status_code, response.text))
+
+        dnc_contact_id = response.json()["url"].split("/")[-2]
+        return dnc_contact_id
