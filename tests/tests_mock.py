@@ -4,6 +4,7 @@ from callhub import CallHub
 import time
 import math
 from requests_mock import Mocker
+import requests_mock
 
 
 class TestInit(unittest.TestCase):
@@ -152,7 +153,7 @@ class TestInit(unittest.TestCase):
     def test_create_contact(self):
         expected_id = 123456
         with Mocker() as mock:
-            mock.post('https://api.callhub.io/v1/contacts/', json={"id": expected_id})
+            mock.post('https://api.callhub.io/v1/contacts/', json={"id": expected_id}, status_code=201)
 
             # Test if contact creation successful
             self.callhub.fields = MagicMock(return_value={"first name": 0, "phone number": 1})
@@ -262,19 +263,44 @@ class TestInit(unittest.TestCase):
             self.assertEqual(self.callhub.get_dnc_phones(), expected_result)
 
     def test_add_dnc(self):
-        expected_result = True
-        callhub_api_json = {
+        successful_dnc_create_json = {
           "url": "https://api.callhub.io/v1/dnc_contacts/12345678/",
-          "dnc": "https://api.callhub.io/v1/dnc_lists/987654321/",
+          "dnc": "https://api.callhub.io/v1/dnc_lists/8794/",
           "phone_number": "15555555555"
         }
+        expected_result = {
+            "15555555555": [{
+                "list_id": "8794",
+                "name": "SMS Campaign 2020-01-1",
+                "dnc_contact_id": "12345678"
+            }]
+        }
+        get_dnc_lists_json = {
+            "5543": "Default DNC List",
+            "8794": "SMS Campaign 2020-01-1",
+        }
+        self.callhub.get_dnc_lists = MagicMock(return_value=get_dnc_lists_json)
         with Mocker() as mock:
-            mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=201, json=callhub_api_json)
-            self.assertEqual(self.callhub.add_dnc(["15555555555"], "987654321"), expected_result)
-            self.assertRaises(TypeError, self.callhub.add_dnc, "15555555555", "987654321")
+            mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=201, json=successful_dnc_create_json)
+            self.assertEqual(self.callhub.add_dnc(["15555555555"], "8794"), expected_result)
+            self.assertRaises(TypeError, self.callhub.add_dnc, "15555555555", "8794")
             mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=400, json="error message")
-            self.assertRaises(RuntimeError, self.callhub.add_dnc, ["15555555555"], "987654321")
+            self.assertRaises(RuntimeError, self.callhub.add_dnc, ["15555555555"], "8794")
 
+    def test_remove_dnc(self):
+        dnc_cache = {"15555555555": [
+            {"list_id": "5543", "name": "Default DNC List", "dnc_contact_id": "9964"},
+            {"list_id": "8794", "name": "SMS Campaign 2020-01-1", "dnc_contact_id": "8894"}
+        ]}
+        self.callhub.get_dnc_phones = MagicMock(return_value=dnc_cache)
+        with Mocker() as mock:
+            mock.delete("https://api.callhub.io/v1/dnc_contacts/{}/".format("9964"), status_code=204)
+            # Test removing single contact from particular dnc lists
+            self.assertEqual(self.callhub.remove_dnc(["15555555555"], "5543"), True)
+            # Ensure that removing a single contact from no particular dnc list makes a request to delete phone number
+            # from multiple dnc lists (tries to delete multiple dnc contacts). We've only mocked ONE dnc contact, so we
+            # should get a requests_mock.exceptions.NoMockAddress when we try to remove any other dnc contact
+            self.assertRaises(requests_mock.exceptions.NoMockAddress, self.callhub.remove_dnc, ["15555555555"])
 
 if __name__ == '__main__':
     unittest.main()

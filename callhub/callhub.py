@@ -48,6 +48,9 @@ class CallHub:
         # validate_api_key returns administrator email on success
         self.admin_email = self.validate_api_key()
 
+        # cache for do-not-contact number/list to id mapping
+        self.dnc_cache = {}
+
     def __repr__(self):
         return "<CallHub admin: {}>".format(self.admin_email)
 
@@ -172,8 +175,13 @@ class CallHub:
             (``str``): ID of created contact or None if contact not created
         """
         if self._assert_fields_exist([contact]):
-            response = self.session.post('https://api.callhub.io/v1/contacts/', data=contact).result()
-            return response.json().get("id")
+            url = "https://api.callhub.io/v1/contacts/"
+            responses = self._handle_requests([{
+                "func": self.session.post,
+                "func_params": {"url": url, "data": {"name": contact}},
+                "expected_status": 201
+            }])
+            return responses[0].json().get("id")
 
     def get_contacts(self, limit):
         """
@@ -216,7 +224,7 @@ class CallHub:
             requests.append({"func": self.session.get,
                              "func_params": {"url": url, "params": {"page": i}},
                              "expected_status": 200})
-        responses_list = self._bulk_request(requests)
+        responses_list = self._handle_requests(requests)
 
         # Turn list of responses into aggregated data from all pages
         paged_data = []
@@ -225,7 +233,7 @@ class CallHub:
         paged_data = paged_data[:limit]
         return paged_data
 
-    def _bulk_request(self, requests_list, aggregate_json_value=None):
+    def _handle_requests(self, requests_list, aggregate_json_value=None):
         """
         Internal function. Executes a list of requests in batches, asynchronously. Allows fast execution of many reqs.
         >>> requests_list = [{"func": session.get,
@@ -251,9 +259,10 @@ class CallHub:
                     response = req_awaiting_response.result()
                     if requests_list[i]["expected_status"] and response.status_code != int(requests_list[i]["expected_status"]):
                         raise RuntimeError("Status code {} when making request to: "
-                                           "{} (expected {})".format(response.status_code,
+                                           "{}, expected {}. Details: {})".format(response.status_code,
                                                                      requests_list[i]["func_params"]["url"],
-                                                                     requests_list[i]["expected_status"]))
+                                                                     requests_list[i]["expected_status"],
+                                                                     response.text))
                     responses.append(response)
                 requests_awaiting_response = []
         return responses
@@ -266,6 +275,17 @@ class CallHub:
         """
         dnc_lists = self._get_paged_data("https://api.callhub.io/v1/dnc_lists/")
         return {dnc_list['url'].split("/")[-2]: dnc_list["name"] for dnc_list in dnc_lists}
+
+    def pretty_format_dnc_data(self, dnc_contacts):
+        dnc_lists = self.get_dnc_lists()
+        dnc_phones = defaultdict(list)
+        for dnc_contact in dnc_contacts:
+            phone = dnc_contact["phone_number"]
+            dnc_list_id = dnc_contact["dnc"].split("/")[-2]
+            dnc_contact_id = dnc_contact["url"].split("/")[-2]
+            dnc_list = {"list_id": dnc_list_id, "name": dnc_lists[dnc_list_id], "dnc_contact_id": dnc_contact_id}
+            dnc_phones[phone].append(dnc_list)
+        return dict(dnc_phones)
 
     def get_dnc_phones(self):
         """
@@ -280,15 +300,8 @@ class CallHub:
                 >>>                                 ]}}
         """
         dnc_contacts = self._get_paged_data("https://api.callhub.io/v1/dnc_contacts/")
-        dnc_lists = self.get_dnc_lists()
-        dnc_phones = defaultdict(list)
-        for dnc_contact in dnc_contacts:
-            phone = dnc_contact["phone_number"]
-            dnc_list_id = dnc_contact["dnc"].split("/")[-2]
-            dnc_contact_id = dnc_contact["url"].split("/")[-2]
-            dnc_list = {"list_id": dnc_list_id, "name": dnc_lists[dnc_list_id], "dnc_contact_id": dnc_contact_id}
-            dnc_phones[phone].append(dnc_list)
-        return dict(dnc_phones)
+        return self.pretty_format_dnc_data(dnc_contacts)
+
 
     def add_dnc(self, phone_numbers, dnc_list_id):
         """
@@ -297,7 +310,7 @@ class CallHub:
             phone_numbers (``list``): Phone numbers to add to DNC
             dnc_list (``str``): DNC list id to add contact(s) to
         Returns:
-            status (``bool``): Returns True on success
+            results (``bool``): Returns dict of phone numbers and DNC lists added to
         """
         if not isinstance(phone_numbers, list):
             raise TypeError("add_dnc expects a list of phone numbers. If you intend to only add one number to the "
@@ -310,5 +323,46 @@ class CallHub:
             requests.append({"func": self.session.post,
                              "func_params": {"url": url, "data":data},
                              "expected_status": 201})
-        self._bulk_request(requests)
+
+        dnc_records = [request.json() for request in self._handle_requests(requests)]
+        results = self.pretty_format_dnc_data(dnc_records)
+        return results
+
+
+    def remove_dnc(self, numbers, dnc_list=None):
+        """
+        Removes phone numbers from do-not-contact list. CallHub's api does not support this, instead it only supports
+        removing phone numbers by their internal do not contact ID. I want to abstract away from that, but it requires
+        building a table of phone numbers mapping to their dnc ids, which can slow this function down especially when
+        using an account with many numbers already marked do-not-contact. This function takes advantage of caching to
+        get around this, and a CallHub instance will have a cache of numbers and dnc lists -> dnc_contact ids available
+        for use. This cache is refreshed if a number is requested to be removed from the DNC list that does not appear
+        in the cache.
+        Args:
+            phone_numbers (``list``): Phone numbers to remove from DNC
+        Keyword Args:
+            dnc_list (``str``, optional): DNC list id to remove numbers from. If not specified, will remove number from
+                all dnc lists.
+        Returns:
+            status (``bool``): Returns True on success
+        """
+        # Check if we need to refresh DNC phone numbers cache
+        if not set(numbers).issubset(set(self.dnc_cache.keys())):
+            self.dnc_cache = self.get_dnc_phones()
+
+        dnc_ids_to_purge = []
+        for number in numbers:
+            for dnc_entry in self.dnc_cache[number]:
+                if dnc_list and (dnc_entry["list_id"] == dnc_list):
+                    dnc_ids_to_purge.append(dnc_entry["dnc_contact_id"])
+                elif not dnc_list:
+                    dnc_ids_to_purge.append(dnc_entry["dnc_contact_id"])
+
+        url = "https://api.callhub.io/v1/dnc_contacts/{}/"
+        requests = []
+        for dnc_id in dnc_ids_to_purge:
+            requests.append({"func": self.session.delete,
+                             "func_params": {"url": url.format(dnc_id)},
+                             "expected_status": 204})
+        self._handle_requests(requests)
         return True
