@@ -271,6 +271,7 @@ class TestInit(unittest.TestCase):
         with Mocker() as mock:
             mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=201, json=callhub_api_json)
             self.assertEqual(self.callhub.add_dnc(["15555555555"], "987654321"), expected_result)
+            self.assertRaises(TypeError, self.callhub.add_dnc, "15555555555", "987654321")
             mock.post("https://api.callhub.io/v1/dnc_contacts/", status_code=400, json="error message")
             self.assertRaises(RuntimeError, self.callhub.add_dnc, ["15555555555"], "987654321")
 
