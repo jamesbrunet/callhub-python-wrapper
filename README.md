@@ -29,7 +29,10 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Get all fields and IDs (including custom fields)
 * Bulk get contacts and fields
 * Create single contact
+
+### Implemented but not in latest release
 * Get all phone numbers on DNC list
+* Get all DNC lists
 
 ### Currently on roadmap
 
