@@ -290,22 +290,25 @@ class CallHub:
             dnc_phones[phone].append(dnc_list)
         return dict(dnc_phones)
 
-    def add_dnc(self, phone_number, dnc_list_id):
+    def add_dnc(self, phone_numbers, dnc_list_id):
         """
-        Adds phone number to a DNC list of choice
+        Adds phone numbers to a DNC list of choice
         Args:
-            phone_number (``str``): Phone number to add to DNC
-            dnc_list (``str``): DNC list id to add contact to
+            phone_numbers (``list``): Phone numbers to add to DNC
+            dnc_list (``str``): DNC list id to add contact(s) to
         Returns:
-            dnc_contact_id (``str``): A unique id for this entry in the do-not-contact database. Every phone number on
-                every dnc list has a unique dnc_contact_id that is unrelated to the contact_id of the actual contacts
-                related to those phone numbers
+            status (``bool``): Returns True on success
         """
-        data = {'dnc': 'https://api.callhub.io/v1/dnc_lists/{}/'.format(dnc_list_id), 'phone_number': phone_number}
-        response = self.session.post('https://api.callhub.io/v1/dnc_contacts/', data=data).result()
+        if not isinstance(phone_numbers, list):
+            raise TypeError("add_dnc expects a list of phone numbers. If you intend to only add one number to the "
+                            "do-not-contact list, add a list of length 1")
 
-        if response.status_code != 201:
-            raise RuntimeError("Status code {} when adding DNC: {}".format(response.status_code, response.text))
-
-        dnc_contact_id = response.json()["url"].split("/")[-2]
-        return dnc_contact_id
+        url = "https://api.callhub.io/v1/dnc_contacts/"
+        requests = []
+        for number in phone_numbers:
+            data = {"dnc": "https://api.callhub.io/v1/dnc_lists/{}/".format(dnc_list_id), 'phone_number': number}
+            requests.append({"func": self.session.post,
+                             "func_params": {"url": url, "data":data},
+                             "expected_status": 201})
+        self._bulk_request(requests)
+        return True

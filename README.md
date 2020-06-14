@@ -33,7 +33,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 ### Implemented but not in latest release
 * Get all phone numbers on DNC list
 * Get all DNC lists
-* Add number to DNC list
+* Add numbers to DNC list
 
 ### Currently on roadmap
 
@@ -70,4 +70,7 @@ Creates a clean(er) python interface to several important functions of the CallH
     callhub.get_dnc_phones()
     
     # Add phone number 555-555-5555 to DNC list 123456789
-    callhub.add_dnc("5555555555", "123456789")
+    callhub.add_dnc(["5555555555"], "123456789")
+    
+    # Add multiple phone numbers to dnc list 12345689
+    callhub.add_dnc(["5555555555","5554443333"], "123456789")
