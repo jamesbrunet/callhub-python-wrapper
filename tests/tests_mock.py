@@ -296,11 +296,35 @@ class TestInit(unittest.TestCase):
         with Mocker() as mock:
             mock.delete("https://api.callhub.io/v1/dnc_contacts/{}/".format("9964"), status_code=204)
             # Test removing single contact from particular dnc lists
-            self.assertEqual(self.callhub.remove_dnc(["15555555555"], "5543"), True)
+            self.assertEqual(self.callhub.remove_dnc(["15555555555"], "5543"), None)
             # Ensure that removing a single contact from no particular dnc list makes a request to delete phone number
             # from multiple dnc lists (tries to delete multiple dnc contacts). We've only mocked ONE dnc contact, so we
             # should get a requests_mock.exceptions.NoMockAddress when we try to remove any other dnc contact
             self.assertRaises(requests_mock.exceptions.NoMockAddress, self.callhub.remove_dnc, ["15555555555"])
+
+    def test_remove_dnc_list(self):
+        list_id = "9964"
+        with Mocker() as mock:
+            mock.delete("https://api.callhub.io/v1/dnc_lists/{}/".format(list_id), status_code=204)
+            self.assertEqual(self.callhub.remove_dnc_list(list_id), None)
+            mock.delete("https://api.callhub.io/v1/dnc_lists/{}/".format(list_id), status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.remove_dnc_list, list_id)
+
+    def test_add_dnc_list(self):
+        list_id = "9964"
+        list_name = "This is a do not call list!"
+        callhub_api_json = {
+            "url": "https://api.callhub.io/v1/dnc_lists/{}/".format(list_id),
+            "owner": "jamesbrunet",
+            "name": list_name
+        }
+        with Mocker() as mock:
+            mock.post("https://api.callhub.io/v1/dnc_lists/", status_code=201, json=callhub_api_json)
+            self.assertEqual(self.callhub.create_dnc_list(list_name), list_id)
+            mock.post("https://api.callhub.io/v1/dnc_lists/", status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.create_dnc_list, list_name)
+
+
 
 if __name__ == '__main__':
     unittest.main()

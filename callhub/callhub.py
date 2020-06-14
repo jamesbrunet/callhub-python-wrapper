@@ -343,8 +343,6 @@ class CallHub:
         Keyword Args:
             dnc_list (``str``, optional): DNC list id to remove numbers from. If not specified, will remove number from
                 all dnc lists.
-        Returns:
-            status (``bool``): Returns True on success
         """
         # Check if we need to refresh DNC phone numbers cache
         if not set(numbers).issubset(set(self.dnc_cache.keys())):
@@ -365,4 +363,32 @@ class CallHub:
                              "func_params": {"url": url.format(dnc_id)},
                              "expected_status": 204})
         self._handle_requests(requests)
-        return True
+
+    def create_dnc_list(self, name):
+        """
+        Creates a new DNC list
+        Args:
+            name (``str``): Name to assign to DNC list
+        Returns:
+            id (``str``): ID of created dnc list
+        """
+        url = "https://api.callhub.io/v1/dnc_lists/"
+        responses = self._handle_requests([{
+            "func": self.session.post,
+            "func_params": {"url": url, "data": {"name": name}},
+            "expected_status": 201
+        }])
+        return responses[0].json()["url"].split("/")[-2]
+
+    def remove_dnc_list(self, id):
+        """
+        Deletes an existing DNC list
+        Args:
+            id (``str``): ID of DNC list to delete
+        """
+        url = "https://api.callhub.io/v1/dnc_lists/{}/"
+        self._handle_requests([{
+            "func": self.session.delete,
+            "func_params": {"url": url.format(id)},
+            "expected_status": 204
+        }])
