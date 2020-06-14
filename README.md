@@ -31,6 +31,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Create single contact
 
 ### Implemented but not in latest release
+
 * Get all phone numbers on DNC list
 * Get all DNC lists
 * Add numbers to DNC list
@@ -74,3 +75,13 @@ Creates a clean(er) python interface to several important functions of the CallH
     
     # Add multiple phone numbers to dnc list 12345689
     callhub.add_dnc(["5555555555","5554443333"], "123456789")
+### Performance Notes
+
+#####Bulk creating contacts works differently from most other functions
+This takes advantage of CallHub's built in bulk_create API endpoint, so expect equivalent speeds to uploading a spreadsheet of contacts as a normal admin user. Note that bulk_create can only be called once every 70 seconds to comply with a special CallHub ratelimit on this endpoint.
+#####It's faster to call add_dnc with ten numbers than to call add_dnc with one number ten times
+If you use this library to make looping calls on most functions (e.g. add_dnc), you can expect a performance of about 1 request/second. This is because all functions wait until they receives a response from the server before exiting.
+
+However, you can get much faster performance if you call add_dnc with a list of ten contacts (as opposed to ten times with one contact each time). This is because every function that does many similar repetitive API calls leverages async requests for repetitive calls (makes a large batch of requests and then waits for that pool of requests to finish.) Because of this, we can achieve real-world speeds of adding 10 numbers to a DNC list per second for large batches of numbers (CallHub's API limit is 20/s).
+#####Fetching contacts with get_contacts can take a while
+CallHub only gives us 10 contacts per api request when using get_contacts, so expect this script to fetch contacts at about 100 contacts/s. That's about 17 minutes to fetch 100K contacts!
