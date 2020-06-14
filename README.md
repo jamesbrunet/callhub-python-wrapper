@@ -22,16 +22,13 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Automatically handles paging when doing bulk fetching
 * Uses async requests to improve speed for repetitive calls (implemented in get_contacts)
 
-### Currently implemented
+### Implemented in latest release
 
 * Bulk create contacts
 * Get agent leaderboard
 * Get all fields and IDs (including custom fields)
 * Bulk get contacts and fields
 * Create single contact
-
-### Implemented but not in latest release
-
 * Get all phone numbers on DNC list
 * Get all DNC lists
 * Add/remove numbers to/from DNC list(s)
