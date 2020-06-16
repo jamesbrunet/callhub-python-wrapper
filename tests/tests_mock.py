@@ -324,7 +324,42 @@ class TestInit(unittest.TestCase):
             mock.post("https://api.callhub.io/v1/dnc_lists/", status_code=400)
             self.assertRaises(RuntimeError, self.callhub.create_dnc_list, list_name)
 
+    def test_create_phonebook(self):
+        phonebook_id = "123456789"
+        callhub_api_json = {
+            "url": "https://api.callhub.io/v1/phonebooks/{}/".format(phonebook_id),
+            "owner": "doesnotmatter",
+            "name": "my phonebook name",
+            "description": "doesnotmatter"
+        }
+        with Mocker() as mock:
+            mock.post("https://api.callhub.io/v1/phonebooks/", status_code=201, json=callhub_api_json)
+            self.assertEqual(self.callhub.create_phonebook("my phonebook name"), phonebook_id)
+            mock.post("https://api.callhub.io/v1/phonebooks/", status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.create_phonebook, "my phonebook name")
 
+    def test_get_campaigns(self):
+        campaign_id = 123456789
+        callhub_api_json = {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "url": "https://api.callhub.io/v1/callcenter_campaigns/{}/".format(campaign_id),
+                    "owner": "readme",
+                    "name": "Second Campaign",
+                    "status": 4,
+                    "phonebook": ["https://api.callhub.io/v1/phonebooks/1332/"]
+                },
+            ]
+        }
+        expected_result = callhub_api_json["results"].copy()
+        with Mocker() as mock:
+            mock.get("https://api.callhub.io/v1/callcenter_campaigns/", status_code=200, json=callhub_api_json)
+            self.assertEqual(self.callhub.get_campaigns(), expected_result)
+            mock.get("https://api.callhub.io/v1/callcenter_campaigns/", status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.get_campaigns)
 
 if __name__ == '__main__':
     unittest.main()

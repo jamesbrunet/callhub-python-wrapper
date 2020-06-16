@@ -206,7 +206,13 @@ class CallHub:
             paged_data (``list``) All of the paged data as a signle list of dicts, where each dict contains key value
                 pairs that represent each individual item in a page.
         """
-        first_page = self.session.get(url).result().json()
+        first_page = self.session.get(url).result()
+        if first_page.status_code != 200:
+            raise RuntimeError("Status code {} when making request to: "
+                                "{}, expected 200. Details: {})".format(first_page.status_code,
+                                                                        url,
+                                                                        first_page.text))
+        first_page = first_page.json()
 
         # Handle either limit of 0 or no results
         if first_page["count"] == 0 or limit == 0:
@@ -392,3 +398,32 @@ class CallHub:
             "func_params": {"url": url.format(id)},
             "expected_status": 204
         }])
+
+    def get_campaigns(self):
+        """
+        Get call campaigns
+        Returns:
+            campaigns (``dict``): list of campaigns
+        """
+        url = "https://api.callhub.io/v1/callcenter_campaigns/"
+        campaigns = self._get_paged_data(url)
+        return campaigns
+
+    def create_phonebook(self, name, description=""):
+        """
+        Create a phonebook
+        Args:
+            name (``str``): Name of phonebook
+        Keyword Args:
+            description (``str``, optional): Description of phonebook
+        Returns:
+            id (``str``): id of phonebook
+        """
+        url = "https://api.callhub.io/v1/phonebooks/"
+        responses = self._handle_requests([{
+            "func": self.session.post,
+            "func_params": {"url": url, "data": {"name": name, "description": description}},
+            "expected_status": 201
+        }])
+        id = responses[0].json()["url"].split("/")[-2]
+        return id
