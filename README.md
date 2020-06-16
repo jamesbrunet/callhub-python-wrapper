@@ -80,16 +80,16 @@ Creates a clean(er) python interface to several important functions of the CallH
     callhub.remove_dnc_list(list_id)
     
     # Add phone number 555-555-5555 to DNC list id 123456789
-    callhub.add_dnc(["5555555555"], "123456789")
+    callhub.add_dnc(["15555555555"], "123456789")
     
     # Add multiple phone numbers to DNC list id 12345689
-    callhub.add_dnc(["5555555555","5554443333"], "123456789")
+    callhub.add_dnc(["15555555555","15554443333"], "123456789")
     
     # Remove number(s) from all DNC lists
-    callhub.remove_dnc(["5554443333"])
+    callhub.remove_dnc(["15554443333"])
     
     # Remove number(s) from specific DNC list id
-    callhub.remove_dnc(["5555555555"], "123456789")
+    callhub.remove_dnc(["15555555555"], "123456789")
     
 # Performance Notes
 
