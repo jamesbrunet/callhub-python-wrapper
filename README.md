@@ -49,7 +49,8 @@ Creates a clean(er) python interface to several important functions of the CallH
     import callhub
     callhub = CallHub(api_key="123456789ABCDEF")
 ##### Contacts and Phonebooks
-    phonebook_id = callhub.create_phonebook("My new phonebook", description="For testing the bulk_create method")
+    phonebook_id = callhub.create_phonebook("My new phonebook",
+                                            description="Used to test the bulk_create method")
     contacts = [{'first name': 'Sumiya', 'phone number':'5555555555', 'mobile number': '5555555555'},
                {'first name': 'Joe', 'phone number':'5555555555', 'mobile number':'5555555555'}]
     country_iso = "CA"
