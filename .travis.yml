@@ -11,4 +11,6 @@ install:
 script:
   - pip install coveralls requests-mock
   - coverage run --source=callhub -m unittest tests.tests_system
+  - coverage run --source=callhub -m unittest tests.tests_mock
+  - coverage combine
   - coveralls
