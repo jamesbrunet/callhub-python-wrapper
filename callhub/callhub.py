@@ -427,3 +427,44 @@ class CallHub:
         }])
         id = responses[0].json()["url"].split("/")[-2]
         return id
+
+    def create_webhook(self, target, event="cc.notes"):
+        """
+        Creates a webhook on a particular target
+        Args:
+            target (``str``): URL for CallHub to send webhook to
+        Keyword Args:
+            event (``str``, optional): Event which triggers webhook. Default: When an agent completes a call (cc.notes)
+        Returns:
+            id (``str``): id of created webhook
+        """
+        url = "https://api.callhub.io/v1/webhooks/"
+        responses = self._handle_requests([{
+            "func": self.session.post,
+            "func_params": {"url": url, "data": {"target": target, "event": event}},
+            "expected_status": 201
+        }])
+        return responses[0].json()["id"]
+
+    def get_webhooks(self):
+        """
+        Fetches webhooks created by a CallHub account
+        Returns:
+            webhooks (``dict``): list of webhooks
+        """
+        url = "https://api.callhub.io/v1/webhooks/"
+        webhooks = self._get_paged_data(url)
+        return webhooks
+
+    def remove_webhook(self, id):
+        """
+        Deletes a webhook with a given id
+        Args:
+            id (``str``): id of webhook to delete
+        """
+        url = "https://api.callhub.io/v1/webhooks/{}/".format(id)
+        responses = self._handle_requests([{
+            "func": self.session.delete,
+            "func_params": {"url": url},
+            "expected_status": 204
+        }])

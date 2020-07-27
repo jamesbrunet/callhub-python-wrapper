@@ -35,10 +35,10 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Create and delete DNC lists
 * Get campaigns
 * Create phonebook
+* Create/get/delete webhook
 
 ### Currently on roadmap
 
-* Create/get/delete webhook
 * Create/get teams
 * Add/delete agent to/from team
 * Create/delete agent

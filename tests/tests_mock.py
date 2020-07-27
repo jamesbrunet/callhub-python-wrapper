@@ -361,5 +361,44 @@ class TestInit(unittest.TestCase):
             mock.get("https://api.callhub.io/v1/callcenter_campaigns/", status_code=400)
             self.assertRaises(RuntimeError, self.callhub.get_campaigns)
 
+    def test_create_webhook(self):
+        target = "https://example.com/webhook"
+        webhook_id = "12345"
+        callhub_api_json = {
+            "id": webhook_id,
+            # There's other stuff that callhub returns, but we only care about the ID
+        }
+        with Mocker() as mock:
+            mock.post("https://api.callhub.io/v1/webhooks/", status_code=201, json=callhub_api_json)
+            self.assertEqual(self.callhub.create_webhook(target), webhook_id)
+            mock.post("https://api.callhub.io/v1/webhooks/", status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.create_webhook, target)
+
+    def test_get_webhooks(self):
+        callhub_api_json = {
+            "count": 1,
+            "next": None,
+            "previous": None,
+            "results": [
+                {
+                    "id":"1234"
+                },
+            ]
+        }
+        expected_result = callhub_api_json["results"].copy()
+        with Mocker() as mock:
+            mock.get("https://api.callhub.io/v1/webhooks/", status_code=200, json=callhub_api_json)
+            self.assertEqual(self.callhub.get_webhooks(), expected_result)
+            mock.get("https://api.callhub.io/v1/webhooks/", status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.get_webhooks)
+
+    def test_remove_webhook(self):
+        webhook_id = "1234"
+        with Mocker() as mock:
+            mock.delete("https://api.callhub.io/v1/webhooks/{}/".format(webhook_id), status_code=204)
+            self.assertEqual(self.callhub.remove_webhook(webhook_id), None)
+            mock.delete("https://api.callhub.io/v1/webhooks/{}/".format(webhook_id), status_code=400)
+            self.assertRaises(RuntimeError, self.callhub.remove_webhook, webhook_id)
+
 if __name__ == '__main__':
     unittest.main()
