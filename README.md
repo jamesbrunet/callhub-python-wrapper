@@ -46,7 +46,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 
 # Usage
 ##### Initialization
-    import callhub
+    from callhub import CallHub
     callhub = CallHub(api_key="123456789ABCDEF")
 ##### Contacts and Phonebooks
     phonebook_id = callhub.create_phonebook("My new phonebook",
