@@ -23,7 +23,7 @@ class TestInit(unittest.TestCase):
                      complete_qs=True,
                      )
 
-            return CallHub(api_key=api_key, rate_limit=False)
+            return CallHub("https://api.callhub.io", api_key=api_key, rate_limit=False)
 
     def setUp(self):
         os.environ["CALLHUB_API_KEY"] = "123456789ABCDEF"
@@ -51,7 +51,7 @@ class TestInit(unittest.TestCase):
                                         'teams': [],
                                         'username': 'defaultuser'}]
                            })
-            self.assertEqual(CallHub(api_key="G00D4P1K3Y").validate_api_key(), "admin@example.com")
+            self.assertEqual(CallHub("https://api.callhub.io", api_key="G00D4P1K3Y").validate_api_key(), "admin@example.com")
 
     def test_api_key_good_no_users(self):
         with Mocker() as mock:
@@ -61,22 +61,22 @@ class TestInit(unittest.TestCase):
                            'previous': None,
                            'results': []
                            })
-            self.assertEqual(CallHub(api_key="G00D4P1K3Y").validate_api_key(), "Cannot deduce admin account. No agent "
+            self.assertEqual(CallHub("https://api.callhub.io", api_key="G00D4P1K3Y").validate_api_key(), "Cannot deduce admin account. No agent "
                                                                                "accounts (not even the default "
                                                                                "account) exist.")
 
     def test_api_key_bad(self):
         with Mocker() as mock:
             mock.get("https://api.callhub.io/v1/agents/", json={'detail': 'Invalid token.'})
-            self.assertRaises(ValueError, CallHub, api_key="B4D4P1K3Y")
+            self.assertRaises(ValueError, CallHub, "https://api.callhub.io", api_key="B4D4P1K3Y")
 
             mock.get("https://api.callhub.io/v1/agents/", json={'detail': 'User inactive or deleted.'})
-            self.assertRaises(ValueError, CallHub, api_key="B4D4P1K3Y",)
+            self.assertRaises(ValueError, CallHub, "https://api.callhub.io", api_key="B4D4P1K3Y",)
 
     def test_api_key_good_but_callhub_misbehaving(self):
         with Mocker() as mock:
             mock.get("https://api.callhub.io/v1/agents/", json={'garbagedata': 'callhub api misbehaving'})
-            self.assertRaises(RuntimeError, CallHub, api_key="G00D4P1K3YBUTC4LLHUB1S4CT1NGUP")
+            self.assertRaises(RuntimeError, CallHub, "https://api.callhub.io", api_key="G00D4P1K3YBUTC4LLHUB1S4CT1NGUP")
 
     def test_auth_env(self):
         self.assertIsInstance(self.create_callhub(), CallHub)

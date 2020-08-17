@@ -47,7 +47,10 @@ Creates a clean(er) python interface to several important functions of the CallH
 # Usage
 ##### Initialization
     from callhub import CallHub
-    callhub = CallHub(api_key="123456789ABCDEF")
+    
+    # Note the required argument for API domain: Depending on your CallHub account, you
+    # may have a different API domain below (EG. "https://api-na1.callhub.io")
+    callhub = CallHub("https://api.callhub.io", api_key="123456789ABCDEF")
 ##### Contacts and Phonebooks
     phonebook_id = callhub.create_phonebook("My new phonebook",
                                             description="Used to test the bulk_create method")

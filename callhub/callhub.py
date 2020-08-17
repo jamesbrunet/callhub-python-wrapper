@@ -15,12 +15,14 @@ class CallHub:
         "BULK_CREATE": {"calls": 1, "period": 70},
     }
 
-    def __init__(self, api_key=None, rate_limit=API_LIMIT):
+    def __init__(self, api_domain, api_key=None, rate_limit=API_LIMIT):
         """
         Instantiates a new CallHub instance
-        >>> callhub = CallHub()
+        >>> callhub = CallHub("https://api-na1.callhub.io")
         With built-in rate limiting disabled:
         >>> callhub = CallHub(rate_limit=False)
+        Args:
+            api_domain (``str``): Domain to access API (eg: api.callhub.io, api-na1.callhub.io), this varies by account
         Keyword Args:
             api_key (``str``, optional): Optional API key. If not provided,
                 it will attempt to use ``os.environ['CALLHUB_API_KEY']``
@@ -35,6 +37,12 @@ class CallHub:
                   this plays it on the safe side, because other rate limiters seem a little sensitive)
         """
         self.session = FuturesSession(max_workers=43)
+
+        # Truncate final '/' off of API domain if it was provided
+        if api_domain[-1] == "/":
+            self.api_domain = api_domain[:-1]
+        else:
+            self.api_domain = api_domain
 
         if rate_limit:
             # Apply general rate limit to self.session.get
@@ -93,7 +101,7 @@ class CallHub:
         Returns:
             username (``str``): Email of administrator account
         """
-        response = self.session.get("https://api.callhub.io/v1/agents/").result()
+        response = self.session.get("{}/v1/agents/".format(self.api_domain)).result()
         if response.json().get("detail") in ['User inactive or deleted.', 'Invalid token.']:
             raise ValueError("Bad API Key")
         elif "count" in response.json():
@@ -103,13 +111,13 @@ class CallHub:
                 return "Cannot deduce admin account. No agent accounts (not even the default account) exist."
         else:
             raise RuntimeError("CallHub API is not returning expected values, but your api_key is fine. Their API "
-                               "specifies that https://api.callhub.io/v1/agents returns a 'count' field, but this was "
+                               "specifies that https://callhub-api-domain/v1/agents returns a 'count' field, but this was "
                                "not returned. Please file an issue on GitHub for this project, if an issue for this not "
                                "already exist.")
 
     def agent_leaderboard(self, start, end):
         params = {"start_date": start, "end_date": end}
-        response = self.session.get("https://api.callhub.io/v1/analytics/agent-leaderboard/", params=params).result()
+        response = self.session.get("{}/v1/analytics/agent-leaderboard/".format(self.api_domain), params=params).result()
         return response.json().get("plot_data")
 
     def fields(self):
@@ -119,7 +127,7 @@ class CallHub:
             fields (``dict``): dictionary of fields and ids
             >>> {"first name": 0, "last name": 1}
         """
-        response = self.session.get('https://api.callhub.io/v1/contacts/fields/').result()
+        response = self.session.get('{}/v1/contacts/fields/'.format(self.api_domain)).result()
         return {field['name']: field["id"] for field in response.json()["results"]}
 
     def bulk_create(self, phonebook_id, contacts, country_iso):
@@ -153,7 +161,7 @@ class CallHub:
                 'mapping': mapping
             }
 
-            response = self.session.post('https://api.callhub.io/v1/contacts/bulk_create/', data=data,
+            response = self.session.post('{}/v1/contacts/bulk_create/'.format(self.api_domain), data=data,
                                          files={'contacts_csv': csv_file}).result()
             if "Import in progress" in response.json().get("message", ""):
                 return True
@@ -175,7 +183,7 @@ class CallHub:
             (``str``): ID of created contact or None if contact not created
         """
         if self._assert_fields_exist([contact]):
-            url = "https://api.callhub.io/v1/contacts/"
+            url = "{}/v1/contacts/".format(self.api_domain)
             responses = self._handle_requests([{
                 "func": self.session.post,
                 "func_params": {"url": url, "data": {"name": contact}},
@@ -192,7 +200,7 @@ class CallHub:
         Returns:
             contact_list (``list``): List of contacts, where each contact is a dict of key value pairs.
         """
-        contacts_url = "https://api.callhub.io/v1/contacts/"
+        contacts_url = "{}/v1/contacts/".format(self.api_domain)
         return self._get_paged_data(contacts_url, limit)
 
     def _get_paged_data(self, url, limit=float(math.inf)):
@@ -243,7 +251,7 @@ class CallHub:
         """
         Internal function. Executes a list of requests in batches, asynchronously. Allows fast execution of many reqs.
         >>> requests_list = [{"func": session.get,
-        >>>                   "func_params": {"url":"https://api.callhub.io/v1/contacts/", "params":{"page":"1"}}}
+        >>>                   "func_params": {"url":"https://callhub-api-domain/v1/contacts/", "params":{"page":"1"}}}
         >>>                   "expected_status": 200]
         >>> _bulk_request(requests_list)
         Args:
@@ -279,7 +287,7 @@ class CallHub:
         Returns:
             dnc_lists (``dict``): Dictionary of dnc lists where the key is the id and the value is the name
         """
-        dnc_lists = self._get_paged_data("https://api.callhub.io/v1/dnc_lists/")
+        dnc_lists = self._get_paged_data("{}/v1/dnc_lists/".format(self.api_domain))
         return {dnc_list['url'].split("/")[-2]: dnc_list["name"] for dnc_list in dnc_lists}
 
     def pretty_format_dnc_data(self, dnc_contacts):
@@ -305,7 +313,7 @@ class CallHub:
                 >>>                                    {"list_id": 8794, "name": "SMS Campaign", "dnc_contact_id": 4567}
                 >>>                                 ]}}
         """
-        dnc_contacts = self._get_paged_data("https://api.callhub.io/v1/dnc_contacts/")
+        dnc_contacts = self._get_paged_data("{}/v1/dnc_contacts/".format(self.api_domain))
         return self.pretty_format_dnc_data(dnc_contacts)
 
 
@@ -322,10 +330,10 @@ class CallHub:
             raise TypeError("add_dnc expects a list of phone numbers. If you intend to only add one number to the "
                             "do-not-contact list, add a list of length 1")
 
-        url = "https://api.callhub.io/v1/dnc_contacts/"
+        url = "{}/v1/dnc_contacts/".format(self.api_domain)
         requests = []
         for number in phone_numbers:
-            data = {"dnc": "https://api.callhub.io/v1/dnc_lists/{}/".format(dnc_list_id), 'phone_number': number}
+            data = {"dnc": "{}/v1/dnc_lists/{}/".format(self.api_domain, dnc_list_id), 'phone_number': number}
             requests.append({"func": self.session.post,
                              "func_params": {"url": url, "data":data},
                              "expected_status": 201})
@@ -362,11 +370,11 @@ class CallHub:
                 elif not dnc_list:
                     dnc_ids_to_purge.append(dnc_entry["dnc_contact_id"])
 
-        url = "https://api.callhub.io/v1/dnc_contacts/{}/"
+        url = "{}/v1/dnc_contacts/{}/"
         requests = []
         for dnc_id in dnc_ids_to_purge:
             requests.append({"func": self.session.delete,
-                             "func_params": {"url": url.format(dnc_id)},
+                             "func_params": {"url": url.format(self.api_domain, dnc_id)},
                              "expected_status": 204})
         self._handle_requests(requests)
 
@@ -378,7 +386,7 @@ class CallHub:
         Returns:
             id (``str``): ID of created dnc list
         """
-        url = "https://api.callhub.io/v1/dnc_lists/"
+        url = "{}/v1/dnc_lists/".format(self.api_domain)
         responses = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"name": name}},
@@ -392,10 +400,10 @@ class CallHub:
         Args:
             id (``str``): ID of DNC list to delete
         """
-        url = "https://api.callhub.io/v1/dnc_lists/{}/"
+        url = "{}/v1/dnc_lists/{}/"
         self._handle_requests([{
             "func": self.session.delete,
-            "func_params": {"url": url.format(id)},
+            "func_params": {"url": url.format(self.api_domain, id)},
             "expected_status": 204
         }])
 
@@ -405,7 +413,7 @@ class CallHub:
         Returns:
             campaigns (``dict``): list of campaigns
         """
-        url = "https://api.callhub.io/v1/callcenter_campaigns/"
+        url = "{}/v1/callcenter_campaigns/".format(self.api_domain)
         campaigns = self._get_paged_data(url)
         return campaigns
 
@@ -419,7 +427,7 @@ class CallHub:
         Returns:
             id (``str``): id of phonebook
         """
-        url = "https://api.callhub.io/v1/phonebooks/"
+        url = "{}/v1/phonebooks/".format(self.api_domain)
         responses = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"name": name, "description": description}},
@@ -438,7 +446,7 @@ class CallHub:
         Returns:
             id (``str``): id of created webhook
         """
-        url = "https://api.callhub.io/v1/webhooks/"
+        url = "{}/v1/webhooks/".format(self.api_domain)
         responses = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"target": target, "event": event}},
@@ -452,7 +460,7 @@ class CallHub:
         Returns:
             webhooks (``dict``): list of webhooks
         """
-        url = "https://api.callhub.io/v1/webhooks/"
+        url = "{}/v1/webhooks/".format(self.api_domain)
         webhooks = self._get_paged_data(url)
         return webhooks
 
@@ -462,7 +470,7 @@ class CallHub:
         Args:
             id (``str``): id of webhook to delete
         """
-        url = "https://api.callhub.io/v1/webhooks/{}/".format(id)
+        url = "{}/v1/webhooks/{}/".format(self.api_domain, id)
         responses = self._handle_requests([{
             "func": self.session.delete,
             "func_params": {"url": url},

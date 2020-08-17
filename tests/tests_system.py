@@ -8,7 +8,7 @@ import uuid
 class TestInit(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.callhub = CallHub()
+        cls.callhub = CallHub("https://api.callhub.io")
 
     def test_dnc_list_functionality(self):
         self.add_dnc_list()

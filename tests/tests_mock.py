@@ -32,7 +32,7 @@ class TestInit(unittest.TestCase):
             # Create ten callhub objects stored in cls.callhubs (for bulk testing)
             cls.callhubs = []
             for i in range(11):
-                callhub = CallHub(api_key="123456789ABCDEF", rate_limit=cls.TESTING_API_LIMIT)
+                callhub = CallHub("https://api.callhub.io", api_key="123456789ABCDEF", rate_limit=cls.TESTING_API_LIMIT)
                 # Override all http methods with mocking so a poorly designed test can't mess with
                 if i == 0:
                     cls.callhub = callhub
