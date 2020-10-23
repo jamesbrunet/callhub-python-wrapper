@@ -8,6 +8,7 @@ import math
 from requests_futures.sessions import FuturesSession
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
+import traceback
 
 class CallHub:
     API_LIMIT = {
@@ -189,11 +190,13 @@ class CallHub:
         """
         if self._assert_fields_exist([contact]):
             url = "{}/v1/contacts/".format(self.api_domain)
-            responses = self._handle_requests([{
+            responses, errors = self._handle_requests([{
                 "func": self.session.post,
                 "func_params": {"url": url, "data": {"name": contact}},
                 "expected_status": 201
             }])
+            if errors:
+                raise RuntimeError(errors)
             return responses[0].json().get("id")
 
     def get_contacts(self, limit):
@@ -243,7 +246,9 @@ class CallHub:
             requests.append({"func": self.session.get,
                              "func_params": {"url": url, "params": {"page": i}},
                              "expected_status": 200})
-        responses_list = self._handle_requests(requests)
+        responses_list, errors = self._handle_requests(requests)
+        if errors:
+            raise RuntimeError(errors)
 
         # Turn list of responses into aggregated data from all pages
         paged_data = []
@@ -267,6 +272,7 @@ class CallHub:
         batch_size = 500
         requests_awaiting_response = []
         responses = []
+        errors = []
         for i, request in enumerate(requests_list):
             # Execute request asynchronously
             requests_awaiting_response.append(request["func"](**request["func_params"]))
@@ -276,15 +282,21 @@ class CallHub:
             if i % batch_size == 0 or i == (len(requests_list)-1):
                 for req_awaiting_response in requests_awaiting_response:
                     response = req_awaiting_response.result()
-                    if requests_list[i]["expected_status"] and response.status_code != int(requests_list[i]["expected_status"]):
-                        raise RuntimeError("Status code {} when making request to: "
-                                           "{}, expected {}. Details: {})".format(response.status_code,
-                                                                     requests_list[i]["func_params"]["url"],
-                                                                     requests_list[i]["expected_status"],
-                                                                     response.text))
-                    responses.append(response)
+                    try:
+                        if requests_list[i]["expected_status"] and response.status_code != int(requests_list[i]["expected_status"]):
+                            raise RuntimeError("Status code {} when making request to: "
+                                               "{}, expected {}. Details: {})".format(response.status_code,
+                                                                         requests_list[i]["func_params"]["url"],
+                                                                         requests_list[i]["expected_status"],
+                                                                         response.text))
+                        responses.append(response)
+
+                    except RuntimeError as api_except:
+                        errors.append(api_except)
+
                 requests_awaiting_response = []
-        return responses
+
+        return responses, errors
 
     def get_dnc_lists(self):
         """
@@ -329,7 +341,8 @@ class CallHub:
             phone_numbers (``list``): Phone numbers to add to DNC
             dnc_list (``str``): DNC list id to add contact(s) to
         Returns:
-            results (``bool``): Returns dict of phone numbers and DNC lists added to
+            results (``dict``): Dict of phone numbers and DNC lists added to
+            errors (``list``): List of errors and failures
         """
         if not isinstance(phone_numbers, list):
             raise TypeError("add_dnc expects a list of phone numbers. If you intend to only add one number to the "
@@ -343,9 +356,10 @@ class CallHub:
                              "func_params": {"url": url, "data":data},
                              "expected_status": 201})
 
-        dnc_records = [request.json() for request in self._handle_requests(requests)]
+        responses, errors = self._handle_requests(requests)
+        dnc_records = [request.json() for request in responses]
         results = self.pretty_format_dnc_data(dnc_records)
-        return results
+        return results, errors
 
 
     def remove_dnc(self, numbers, dnc_list=None):
@@ -362,6 +376,8 @@ class CallHub:
         Keyword Args:
             dnc_list (``str``, optional): DNC list id to remove numbers from. If not specified, will remove number from
                 all dnc lists.
+        Returns:
+            errors (``list``): List of errors
         """
         # Check if we need to refresh DNC phone numbers cache
         if not set(numbers).issubset(set(self.dnc_cache.keys())):
@@ -381,7 +397,8 @@ class CallHub:
             requests.append({"func": self.session.delete,
                              "func_params": {"url": url.format(self.api_domain, dnc_id)},
                              "expected_status": 204})
-        self._handle_requests(requests)
+        responses, errors = self._handle_requests(requests)
+        return errors
 
     def create_dnc_list(self, name):
         """
@@ -392,11 +409,13 @@ class CallHub:
             id (``str``): ID of created dnc list
         """
         url = "{}/v1/dnc_lists/".format(self.api_domain)
-        responses = self._handle_requests([{
+        responses, errors = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"name": name}},
             "expected_status": 201
         }])
+        if errors:
+            raise RuntimeError(errors)
         return responses[0].json()["url"].split("/")[-2]
 
     def remove_dnc_list(self, id):
@@ -406,11 +425,14 @@ class CallHub:
             id (``str``): ID of DNC list to delete
         """
         url = "{}/v1/dnc_lists/{}/"
-        self._handle_requests([{
+        responses, errors = self._handle_requests([{
             "func": self.session.delete,
             "func_params": {"url": url.format(self.api_domain, id)},
             "expected_status": 204
         }])
+        if errors:
+            raise RuntimeError(errors)
+
 
     def get_campaigns(self):
         """
@@ -433,11 +455,13 @@ class CallHub:
             id (``str``): id of phonebook
         """
         url = "{}/v1/phonebooks/".format(self.api_domain)
-        responses = self._handle_requests([{
+        responses, errors = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"name": name, "description": description}},
             "expected_status": 201
         }])
+        if errors:
+            raise RuntimeError(errors)
         id = responses[0].json()["url"].split("/")[-2]
         return id
 
@@ -452,11 +476,13 @@ class CallHub:
             id (``str``): id of created webhook
         """
         url = "{}/v1/webhooks/".format(self.api_domain)
-        responses = self._handle_requests([{
+        responses, errors = self._handle_requests([{
             "func": self.session.post,
             "func_params": {"url": url, "data": {"target": target, "event": event}},
             "expected_status": 201
         }])
+        if errors:
+            raise RuntimeError(errors)
         return responses[0].json()["id"]
 
     def get_webhooks(self):
@@ -476,8 +502,10 @@ class CallHub:
             id (``str``): id of webhook to delete
         """
         url = "{}/v1/webhooks/{}/".format(self.api_domain, id)
-        responses = self._handle_requests([{
+        responses, errors = self._handle_requests([{
             "func": self.session.delete,
             "func_params": {"url": url},
             "expected_status": 204
         }])
+        if errors:
+            raise RuntimeError(errors)
