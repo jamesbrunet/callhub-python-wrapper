@@ -12,7 +12,7 @@ import traceback
 
 class CallHub:
     API_LIMIT = {
-        "GENERAL": {"calls": 18, "period": 1},
+        "GENERAL": {"calls": 15, "period": 1},
         "BULK_CREATE": {"calls": 1, "period": 70},
     }
 
@@ -296,7 +296,7 @@ class CallHub:
 
                 requests_awaiting_response = []
 
-        if retry and current_retry_count < 1:
+        if errors and retry and current_retry_count < 1:
             failed_requests = [error[0] for error in errors]
             new_responses, errors = self._handle_requests(failed_requests, retry=True, current_retry_count=current_retry_count+1)
             responses = responses + new_responses

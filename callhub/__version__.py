@@ -1,4 +1,4 @@
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __name__ = "callhub-python-wrapper"
 __description__ = "Python API Wrapper for the CallHub API"
 __url__ = "https://github.com/jamesbrunet/callhub-python-wrapper"
