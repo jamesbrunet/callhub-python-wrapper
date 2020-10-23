@@ -39,6 +39,11 @@ class CallHub:
         """
         self.session = FuturesSession(max_workers=43)
 
+        # Attempt 3 retries for failed connections
+        adapter = requests.adapters.HTTPAdapter(max_retries=3)
+        self.session.mount('https://', adapter)
+        self.session.mount('http://', adapter)
+
         # Truncate final '/' off of API domain if it was provided
         if api_domain[-1] == "/":
             self.api_domain = api_domain[:-1]
