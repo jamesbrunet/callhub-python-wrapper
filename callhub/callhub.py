@@ -12,7 +12,7 @@ import traceback
 
 class CallHub:
     API_LIMIT = {
-        "GENERAL": {"calls": 15, "period": 1},
+        "GENERAL": {"calls": 13, "period": 1},
         "BULK_CREATE": {"calls": 1, "period": 70},
     }
 
@@ -30,11 +30,11 @@ class CallHub:
             rate_limit (``dict``, optional): Enabled by default with settings that respect callhub's API limits.
                 Setting this to false disables ratelimiting, or you can set your own limits by following the example
                 below. Please don't abuse! :)
-                >>> callhub = CallHub(rate_limit={"GENERAL": {"calls": 18, "period": 1},
+                >>> callhub = CallHub(rate_limit={"GENERAL": {"calls": 13, "period": 1},
                 >>>                               "BULK_CREATE": {"calls": 1, "period": 70}})
                 - Default limits bulk_create to 1 per 70 seconds (CallHub states their limit is every 60s but in
                   practice a delay of 60s exactly can trip their rate limiter anyways)
-                - Default limits all other API requests to 18 per second (CallHub support states their limit is 20/s but
+                - Default limits all other API requests to 13 per second (CallHub support states their limit is 20/s but
                   this plays it on the safe side, because other rate limiters seem a little sensitive)
         """
         self.session = FuturesSession(max_workers=43)
