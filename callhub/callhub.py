@@ -257,7 +257,7 @@ class CallHub:
         paged_data = paged_data[:limit]
         return paged_data
 
-    def _handle_requests(self, requests_list, aggregate_json_value=None):
+    def _handle_requests(self, requests_list, aggregate_json_value=None, retry=False, current_retry_count=0):
         """
         Internal function. Executes a list of requests in batches, asynchronously. Allows fast execution of many reqs.
         >>> requests_list = [{"func": session.get,
@@ -292,9 +292,14 @@ class CallHub:
                         responses.append(response)
 
                     except RuntimeError as api_except:
-                        errors.append(api_except)
+                        errors.append((requests_list[i], api_except))
 
                 requests_awaiting_response = []
+
+        if retry and current_retry_count < 1:
+            failed_requests = [error[0] for error in errors]
+            new_responses, errors = self._handle_requests(failed_requests, retry=True, current_retry_count=current_retry_count+1)
+            responses = responses + new_responses
 
         return responses, errors
 
@@ -356,7 +361,7 @@ class CallHub:
                              "func_params": {"url": url, "data":data},
                              "expected_status": 201})
 
-        responses, errors = self._handle_requests(requests)
+        responses, errors = self._handle_requests(requests, retry=True)
         dnc_records = [request.json() for request in responses]
         results = self.pretty_format_dnc_data(dnc_records)
         return results, errors
