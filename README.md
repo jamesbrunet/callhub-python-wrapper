@@ -43,6 +43,7 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Add/delete agent to/from team
 * Create/delete agent
 * Export campaigns
+* Evaluate [many-requests](https://github.com/joshlk/many_requests) as alternative to requests-futures
 
 # Usage
 ##### Initialization
