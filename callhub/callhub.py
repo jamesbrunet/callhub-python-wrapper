@@ -9,6 +9,7 @@ from requests_futures.sessions import FuturesSession
 from collections import defaultdict
 from concurrent.futures import ProcessPoolExecutor
 import traceback
+import time
 
 class CallHub:
     API_LIMIT = {
@@ -452,6 +453,10 @@ class CallHub:
         """
         url = "{}/v1/callcenter_campaigns/".format(self.api_domain)
         campaigns = self._get_paged_data(url)
+        # Extract campaign id from url
+        for i, campaign in enumerate(campaigns):
+            id = campaign["url"].split("/")[-2]
+            campaigns[i]["id"] = id
         return campaigns
 
     def create_phonebook(self, name, description=""):
@@ -519,3 +524,53 @@ class CallHub:
         }])
         if errors:
             raise RuntimeError(errors)
+
+    def export_campaign(self, id):
+        """
+        Triggers an export from CallHub's campaign export API. Note that the returned download link only works in an
+        authenticated USER session for the callhub account in question. There is no way to download call campaign
+        results directly through the API, you can only trigger exports. Because of this, there is a very limited
+        use case for this function.
+        Args:
+            id (``str``): id of campaign to export
+        Returns:
+            url (``str``): download link for campaign
+        """
+        # Step 1: Request export of campaign
+        url = "{}/v1/power_campaign/{}/export/".format(self.api_domain, id)
+        responses, errors = self._handle_requests([{
+            "func": self.session.post,
+            "func_params": {"url": url},
+            "expected_status": 202
+        }])
+        if errors:
+            raise RuntimeError(errors)
+        polling_url = responses[0].json()["polling_url"]
+
+        # Step 2: Continuously check if export is complete - 5 min maximum
+        num_attempts_made = 0
+        state = "PENDING"
+        while state == "PENDING" or state == "PROGRESS":
+            time.sleep(1)
+            responses, errors = self._handle_requests([{
+                "func": self.session.get,
+                "func_params": {"url": polling_url},
+                "expected_status": 200
+            }])
+            if errors:
+                raise RuntimeError(errors)
+            state = responses[0].json()["state"]
+
+            num_attempts_made += 1
+            if num_attempts_made == 300:
+                state = "TIMEOUT"
+
+        if state != "SUCCESS":
+            raise RuntimeError("CallHub reported an error trying to export the campaign. State: {}. "
+                               "Full Response: {}".format(state, responses[0].text))
+
+        if responses[0].json()["data"]["code"] != 200:
+            raise RuntimeError("CallHub reported an error trying to export the campaign. "
+                               "Full Response: {}".format(responses[0].text))
+
+        return responses[0].json()["data"]["url"]

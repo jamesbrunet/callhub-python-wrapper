@@ -350,7 +350,8 @@ class TestInit(unittest.TestCase):
                     "owner": "readme",
                     "name": "Second Campaign",
                     "status": 4,
-                    "phonebook": ["https://api.callhub.io/v1/phonebooks/1332/"]
+                    "phonebook": ["https://api.callhub.io/v1/phonebooks/1332/"],
+                    "id": str(campaign_id)
                 },
             ]
         }
@@ -399,6 +400,39 @@ class TestInit(unittest.TestCase):
             self.assertEqual(self.callhub.remove_webhook(webhook_id), None)
             mock.delete("https://api.callhub.io/v1/webhooks/{}/".format(webhook_id), status_code=400)
             self.assertRaises(RuntimeError, self.callhub.remove_webhook, webhook_id)
+
+    def test_export_campaign(self):
+        get_polling_url_json = {
+            'polling_url':'https://api.callhub.io/polling_url_example'
+        }
+        polling_result_timeout_json = {
+            'state': 'TIMEOUT'
+        }
+        polling_result_weird_json = {
+            'state': 'SUCCESS',
+            'data': {
+                'url':'https://example-download.location',
+                'code': 500
+            },
+        }
+        polling_result_success_json = {
+            'state': 'SUCCESS',
+            'data': {
+                'url':'https://example-download.location',
+                'code': 200
+            }
+        }
+        campaign_id = 1234
+        with Mocker() as mock:
+            mock.post("https://api.callhub.io/v1/power_campaign/{}/export/".format(campaign_id),
+                      status_code=202, json=get_polling_url_json)
+            mock.get(get_polling_url_json['polling_url'], status_code=200, json=polling_result_timeout_json)
+            self.assertRaises(RuntimeError, self.callhub.export_campaign, campaign_id)
+            mock.get(get_polling_url_json['polling_url'], status_code=500, json=polling_result_weird_json)
+            self.assertRaises(RuntimeError, self.callhub.export_campaign, campaign_id)
+            mock.get(get_polling_url_json['polling_url'], status_code=200, json=polling_result_success_json)
+            self.assertEqual(self.callhub.export_campaign(campaign_id), polling_result_success_json['data']['url'])
+
 
 if __name__ == '__main__':
     unittest.main()

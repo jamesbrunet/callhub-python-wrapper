@@ -37,12 +37,14 @@ Creates a clean(er) python interface to several important functions of the CallH
 * Create phonebook
 * Create/get/delete webhook
 
+### Implemented, not in release
+* Trigger campaign export
+
 ### Currently on roadmap
 
 * Create/get teams
 * Add/delete agent to/from team
 * Create/delete agent
-* Export campaigns
 * Evaluate [many-requests](https://github.com/joshlk/many_requests) as alternative to requests-futures
 
 # Usage
