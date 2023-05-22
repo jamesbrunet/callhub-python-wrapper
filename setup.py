@@ -13,7 +13,7 @@ with open(os.path.join(here, "README.md"), mode="r") as f:
     README = f.read()
 
 tests_require = ["requests-mock"]
-install_requires = ["requests==2.23.0", "ratelimit==2.2.1", "requests-futures==1.0.0"]
+install_requires = ["requests==2.31.0", "ratelimit==2.2.1", "requests-futures==1.0.0"]
 
 setup(
     name=about["__name__"],
